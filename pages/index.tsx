@@ -1224,6 +1224,9 @@ export default function Home() {
             // Subtle shadow so the frame reads against the background
             boxShadow: isResponsive ? "none" : "0 8px 40px rgba(0,0,0,0.18)",
             borderRadius: isResponsive ? 0 : 8,
+            // Disable text selection inside the prototype
+            userSelect: "none",
+            WebkitUserSelect: "none",
           }}
         >
           <DashboardScreen
@@ -1255,6 +1258,10 @@ export default function Home() {
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
             transition: `background ${MS.dFast} ${MS.eOut}`,
+            // Prevent text-selection callout and scroll interference during drag
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            touchAction: "none",
           }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
