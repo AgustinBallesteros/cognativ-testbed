@@ -1,0 +1,1091 @@
+import { Inter } from "next/font/google";
+import { useRef, useCallback, useState, useEffect } from "react";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
+});
+
+// ─── Design tokens (from Figma "Equal Edge Mobile App") ──────────────────────
+const BLUE        = "#558BF7";
+const CARD_SHADOW = "0 2px 8px rgba(0,0,0,0.08)";
+
+// ─── Motion tokens — JS mirror of motion-system.css custom properties ────────
+// Inline styles can't resolve var() in transition shorthands, so we keep a
+// typed constant object here. Update both this and the :root overrides in
+// globals.css whenever values change.
+const MS = {
+  // Durations
+  dMicro:    "100ms",
+  dFast:     "150ms",
+  dElement:  "250ms",
+  dExpand:      "280ms",   // project override (default 300ms)
+  dExpandClose: "210ms",   // dExpand × 0.75 — asymmetric snappy close
+  dScreen:   "300ms",
+  dProgress: "600ms",
+  dSlow:     "800ms",
+  dCheck:    "200ms",
+  // Easings
+  eOut:    "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+  eInOut:  "cubic-bezier(0.45, 0.00, 0.55, 1.00)",
+  eSpring: "cubic-bezier(0.34, 1.20, 0.64, 1.00)",
+} as const;
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function StatusBar() {
+  return (
+    <div
+      id="status-bar"
+      className="flex items-center justify-between px-7"
+      style={{ height: 54, background: "#F5F5F5" }}
+    >
+      <span className="font-bold text-black" style={{ fontSize: 17 }}>9:41</span>
+      <div className="flex items-center gap-1.5">
+        {/* Signal bars */}
+        <svg width="19" height="12" viewBox="0 0 19 12" fill="none">
+          <rect x="0" y="8" width="3" height="4" rx="1" fill="black" />
+          <rect x="4" y="5" width="3" height="7" rx="1" fill="black" />
+          <rect x="8" y="3" width="3" height="9" rx="1" fill="black" />
+          <rect x="12" y="0" width="3" height="12" rx="1" fill="black" />
+          <rect x="16" y="0" width="3" height="12" rx="1" fill="black" opacity="0.3" />
+        </svg>
+        {/* Wifi */}
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+          <path d="M8 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" fill="black" />
+          <path d="M2.93 6.43a7.5 7.5 0 0 1 10.14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M0.5 3.93a11 11 0 0 1 15 0" stroke="black" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        {/* Battery */}
+        <svg width="27" height="13" viewBox="0 0 27 13" fill="none">
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke="black" strokeOpacity="0.35" />
+          <rect x="2" y="2" width="19" height="9" rx="2" fill="black" />
+          <path d="M25 4.5v4a2 2 0 0 0 0-4Z" fill="black" fillOpacity="0.4" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <div
+      id="header"
+      className="flex items-start justify-between px-4"
+      style={{ paddingTop: 12, paddingBottom: 12, background: "#fff" }}
+    >
+      {/* Month / Year */}
+      <div>
+        <div className="font-bold text-black" style={{ fontSize: 26, lineHeight: "1.1" }}>April</div>
+        <div className="font-normal text-black/50" style={{ fontSize: 13, marginTop: 1 }}>2026</div>
+      </div>
+      {/* Day button */}
+      <div
+        id="day-toggle"
+        className="flex items-center gap-1.5 rounded-full px-3"
+        style={{ background: "#F2F2F2", height: 34, marginTop: 4 }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.75 3C19.5449 3 21 4.45507 21 6.25V17.75C21 19.5449 19.5449 21 17.75 21H6.25C4.45507 21 3 19.5449 3 17.75V6.25C3 4.45507 4.45507 3 6.25 3H17.75ZM17.75 4.5H6.25C5.2835 4.5 4.5 5.2835 4.5 6.25V17.75C4.5 18.7165 5.2835 19.5 6.25 19.5H17.75C18.7165 19.5 19.5 18.7165 19.5 17.75V6.25C19.5 5.2835 18.7165 4.5 17.75 4.5ZM16.25 11C16.6642 11 17 11.3358 17 11.75V16.25C17 16.6642 16.6642 17 16.25 17H7.75C7.33579 17 7 16.6642 7 16.25V11.75C7 11.3358 7.33579 11 7.75 11H16.25ZM15.5 12.5H8.5V15.5H15.5V12.5ZM7.75 7.25H16.25C16.6642 7.25 17 7.58579 17 8C17 8.3797 16.7178 8.69349 16.3518 8.74315L16.25 8.75H7.75C7.33579 8.75 7 8.41421 7 8C7 7.6203 7.28215 7.30651 7.64823 7.25685L7.75 7.25H16.25H7.75Z" fill="#242424"/>
+        </svg>
+        <span className="font-medium text-black" style={{ fontSize: 13 }}>Day</span>
+      </div>
+    </div>
+  );
+}
+
+// Rounded-rect progress ring drawn around the active day cell (44×52, rx=12).
+// Uses an explicit <path> so strokeDasharray traces the outline exactly,
+// starting from the top-center and going clockwise.
+function DayRing({ progress }: { progress: number }) {
+  const W = 44, H = 52, RX = 12, SW = 2.5;
+  const pad = 3; // room for the stroke without being clipped
+  const p = pad; // alias for path math
+
+  // Clockwise rounded-rect path starting at top-center
+  const d = [
+    `M ${p + W / 2} ${p}`,
+    `L ${p + W - RX} ${p}`,
+    `A ${RX} ${RX} 0 0 1 ${p + W} ${p + RX}`,
+    `L ${p + W} ${p + H - RX}`,
+    `A ${RX} ${RX} 0 0 1 ${p + W - RX} ${p + H}`,
+    `L ${p + RX} ${p + H}`,
+    `A ${RX} ${RX} 0 0 1 ${p} ${p + H - RX}`,
+    `L ${p} ${p + RX}`,
+    `A ${RX} ${RX} 0 0 1 ${p + RX} ${p}`,
+    `L ${p + W / 2} ${p}`,
+  ].join(" ");
+
+  // Straight segments + 4 quarter-circle arcs
+  const perimeter = 2 * (W - 2 * RX) + 2 * (H - 2 * RX) + 2 * Math.PI * RX;
+  const clamped   = Math.min(Math.max(progress, 0), 1);
+  const offset    = perimeter * (1 - clamped);
+
+  return (
+    <svg
+      width={W + pad * 2} height={H + pad * 2}
+      viewBox={`0 0 ${W + pad * 2} ${H + pad * 2}`}
+      style={{ position: "absolute", top: -pad, left: -pad, pointerEvents: "none" }}
+    >
+      {/* Faint full track */}
+      <path d={d} fill="none" stroke={BLUE} strokeOpacity={0.18} strokeWidth={SW} />
+      {/* Progress arc */}
+      <path
+        d={d}
+        fill="none"
+        stroke={BLUE}
+        strokeWidth={SW}
+        strokeLinecap="round"
+        strokeDasharray={perimeter}
+        strokeDashoffset={offset}
+        style={{ transition: `stroke-dashoffset ${MS.dProgress} ${MS.eOut}` }}
+      />
+    </svg>
+  );
+}
+
+function WeekStrip({ progress = 0 }: { progress?: number }) {
+  const days = [
+    { label: "Sun", num: "1", active: false },
+    { label: "Mon", num: "2", active: true  },
+    { label: "Tue", num: "3", active: false },
+    { label: "Wed", num: "4", active: false },
+    { label: "Thu", num: "5", active: false },
+    { label: "Fri", num: "6", active: false },
+    { label: "Sat", num: "7", active: false },
+  ];
+
+  return (
+    <div
+      id="week-strip"
+      className="flex items-center justify-between bg-white border-b border-black/5"
+      style={{ paddingLeft: 14, paddingRight: 14, paddingTop: 8, paddingBottom: 8 }}
+    >
+      {days.map((d) => (
+        <div
+          key={d.label}
+          id={`day-${d.label.toLowerCase()}`}
+          className="flex flex-col items-center justify-center"
+          style={{
+            width: 44,
+            height: 52,
+            borderRadius: 12,
+            background: d.active ? "#F4F4F4" : "transparent",
+            position: "relative",
+          }}
+        >
+          {d.active && <DayRing progress={progress} />}
+          <span
+            className="font-medium"
+            style={{ fontSize: 12, color: d.active ? BLUE : "#000", lineHeight: "1.2" }}
+          >
+            {d.label}
+          </span>
+          <span
+            className="font-medium"
+            style={{ fontSize: 13, color: d.active ? BLUE : "#585858", marginTop: 2 }}
+          >
+            {d.num}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionHeader({
+  id,
+  title,
+  badge,
+  expanded = true,
+  onToggle,
+}: {
+  id: string;
+  title: string;
+  badge?: React.ReactNode;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
+  return (
+    <div
+      id={id}
+      className="flex items-center justify-between px-4"
+      style={{ height: 44, cursor: "pointer", userSelect: "none" }}
+      onClick={onToggle}
+    >
+      <div className="flex items-center gap-2">
+        <span className="font-semibold text-black" style={{ fontSize: 15 }}>{title}</span>
+        {badge}
+      </div>
+      <svg
+        width="20" height="20" viewBox="0 0 20 20" fill="none"
+        style={{ transition: `transform ${MS.dExpand} ${MS.eOut}`, transform: expanded ? "rotate(0deg)" : "rotate(180deg)" }}
+      >
+        <path d="M5 13l5-5 5 5" stroke="#888" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
+function DueTodayBadge() {
+  return (
+    <div className="flex items-center gap-1">
+      <div style={{ width: 7, height: 7, borderRadius: "50%", background: BLUE }} />
+      <span className="font-medium" style={{ fontSize: 12, color: BLUE }}>Due Today (1)</span>
+    </div>
+  );
+}
+
+function Checkbox({ checked, onToggle }: { checked: boolean; onToggle: () => void }) {
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      style={{
+        width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+        border: checked ? "none" : "1.5px solid #ccc",
+        background: checked ? BLUE : "transparent",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer",
+        transition: `background ${MS.dCheck} ${MS.eOut}, border ${MS.dCheck} ${MS.eOut}`,
+      }}
+    >
+      {checked && (
+        <svg width="13" height="10" viewBox="0 0 13 10" fill="none">
+          <path d="M1 5l4 4L12 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function TaskCard({
+  id,
+  title,
+  accentColor,
+  tasks = [],
+  onProgressChange,
+}: {
+  id: string;
+  title: string;
+  accentColor: string;
+  tasks?: SubTask[];
+  onProgressChange?: (id: string, done: number, total: number) => void;
+}) {
+  const [expanded,      setExpanded]      = useState(false);
+  const [doneMap,       setDoneMap]       = useState<Record<number, boolean>>({});
+  const [simpleChecked, setSimpleChecked] = useState(false); // used when no tasks
+
+  const total     = tasks.length;
+  const doneCount = Object.values(doneMap).filter(Boolean).length;
+  const allDone   = total > 0 && doneCount === total;
+
+  // Report progress to parent whenever completion state changes
+  useEffect(() => {
+    if (total === 0) {
+      onProgressChange?.(id, simpleChecked ? 1 : 0, 1);
+    } else {
+      onProgressChange?.(id, doneCount, total);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doneCount, simpleChecked, total]);
+
+  // For no-task cards, fall back to a simple toggle that fills the bar
+  const isChecked        = total === 0 ? simpleChecked : allDone;
+  const effectiveProgress = total === 0
+    ? (simpleChecked ? 1 : 0)
+    : (total > 0 ? doneCount / total : 0);
+
+  const remainingMins = tasks.reduce((sum, t, i) =>
+    !doneMap[i] && t.minutes ? sum + t.minutes : sum, 0);
+
+  const handleMainCheck = () => {
+    if (total === 0) {
+      setSimpleChecked((v) => !v);
+      return;
+    }
+    if (allDone) {
+      setDoneMap({});
+    } else {
+      const all: Record<number, boolean> = {};
+      tasks.forEach((_, i) => { all[i] = true; });
+      setDoneMap(all);
+    }
+  };
+
+  const toggleSubtask = (i: number) =>
+    setDoneMap((prev) => ({ ...prev, [i]: !prev[i] }));
+
+  const trackH = total > 0 ? 46 : 36;
+  const fillH  = Math.round(trackH * Math.min(Math.max(effectiveProgress, 0), 1));
+
+  return (
+    <div
+      id={id}
+      className="mx-4 bg-white"
+      style={{ boxShadow: CARD_SHADOW, borderRadius: 14, overflow: "hidden" }}
+    >
+      {/* ── Header ── */}
+      <div
+        className="flex items-center"
+        style={{ height: total > 0 ? 77 : 60, position: "relative", paddingRight: 16 }}
+      >
+        {/* Progress track */}
+        <div
+          style={{
+            position: "absolute", left: 12,
+            top: "50%", transform: "translateY(-50%)",
+            width: 4, height: trackH,
+            borderRadius: 2,
+            background: `color-mix(in srgb, ${accentColor} 25%, transparent)`,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0, left: 0, right: 0,
+              height: `${fillH}px`,
+              borderRadius: 2,
+              background: accentColor,
+              transition: `height ${MS.dProgress} ${MS.eOut}`,
+            }}
+          />
+        </div>
+
+        {/* Text block */}
+        <div style={{ marginLeft: 24, flex: 1 }}>
+          <div className="font-bold text-black" style={{ fontSize: 15 }}>{title}</div>
+          {total > 0 && (
+            <div
+              className="flex items-center gap-1 mt-1"
+              style={{ cursor: "pointer", userSelect: "none", width: "fit-content" }}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              <span className="font-normal text-black/50" style={{ fontSize: 12 }}>
+                Task list ({total})
+              </span>
+              <svg
+                width="10" height="10" viewBox="0 0 10 10" fill="none"
+                style={{ transition: `transform ${MS.dExpand} ${MS.eOut}`, transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+              >
+                <path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          )}
+        </div>
+
+        <Checkbox checked={isChecked} onToggle={handleMainCheck} />
+      </div>
+
+      {/* ── Expanded subtask list ── */}
+      {total > 0 && (
+        <div
+          style={{
+            maxHeight: expanded ? `${tasks.length * 56 + 52}px` : "0px",
+            overflow: "hidden",
+            transition: expanded
+              ? `max-height ${MS.dExpand} ${MS.eOut}`
+              : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
+          }}
+        >
+          <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "0 16px" }} />
+
+          {tasks.map((task, i) => (
+            <div
+              key={i}
+              className="flex items-center"
+              style={{ padding: "10px 16px", gap: 12, minHeight: 48 }}
+            >
+              {/* Circle subtask checkbox */}
+              <div
+                onClick={() => toggleSubtask(i)}
+                style={{
+                  width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                  cursor: "pointer",
+                  border: doneMap[i] ? "none" : "2px solid rgba(0,0,0,0.18)",
+                  background: doneMap[i] ? BLUE : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: `background ${MS.dCheck} ${MS.eOut}`,
+                }}
+              >
+                {doneMap[i] && (
+                  <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                    <path d="M1 4.5l3 3L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+
+              {/* Task label */}
+              <span className="flex-1 font-normal text-black" style={{ fontSize: 13, lineHeight: "1.3" }}>
+                {task.label}
+              </span>
+
+              {/* Time estimate */}
+              <div className="flex flex-col items-center" style={{ minWidth: 24 }}>
+                {task.minutes !== null ? (
+                  <>
+                    <span className="font-bold text-black" style={{ fontSize: 13, lineHeight: 1 }}>
+                      {task.minutes}
+                    </span>
+                    <span style={{ fontSize: 10, color: "#999", lineHeight: 1.3 }}>min</span>
+                  </>
+                ) : (
+                  <span className="font-bold" style={{ fontSize: 13, color: "#999" }}>–</span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Remaining time footer */}
+          <div
+            style={{
+              margin: "4px 16px 12px",
+              background: "#F0F4FF",
+              borderRadius: 8,
+              padding: "8px 14px",
+              display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <span style={{ fontSize: 12, color: "#555" }}>Remaining Time Estimation:</span>
+            <span className="font-semibold" style={{ fontSize: 12, color: "#333" }}>
+              {formatRemaining(remainingMins)}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CircularProgress({
+  progress,   // 0–1
+  color,
+  size = 40,
+}: {
+  progress: number;
+  color: string;
+  size?: number;
+}) {
+  const strokeW  = 3;
+  const r        = (size - strokeW * 2) / 2;        // radius
+  const circ     = 2 * Math.PI * r;                 // full circumference
+  const offset   = circ * (1 - Math.min(Math.max(progress, 0), 1));
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const innerR = r - strokeW - 1; // radius of the solid inner circle
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ flexShrink: 0, transform: "rotate(-90deg)" }}
+    >
+      {/* Track */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke={color}
+        strokeOpacity={0.25}
+        strokeWidth={strokeW}
+      />
+      {/* Inner filled circle */}
+      <circle
+        cx={cx} cy={cy} r={innerR}
+        fill={color}
+        opacity={0.5}
+      />
+      {/* Progress arc — clockwise from top */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeW}
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        style={{ transition: `stroke-dashoffset ${MS.dProgress} ${MS.eOut}` }}
+      />
+    </svg>
+  );
+}
+
+type SubTask = { label: string; minutes: number | null };
+
+function formatRemaining(minutes: number): string {
+  if (minutes <= 0) return "0 min";
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h}:00 hr` : `${h}:${String(m).padStart(2, "0")} hr`;
+}
+
+function TimedCard({
+  id,
+  title,
+  timeRange,
+  avatarColor,
+  tasks = [],
+  onProgressChange,
+}: {
+  id: string;
+  title: string;
+  timeRange: string;
+  avatarColor: string;
+  tasks?: SubTask[];
+  onProgressChange?: (id: string, done: number, total: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [doneMap,  setDoneMap]  = useState<Record<number, boolean>>({});
+
+  const total     = tasks.length;
+  const doneCount = Object.values(doneMap).filter(Boolean).length;
+  const allDone   = total > 0 && doneCount === total;
+
+  // Report progress to parent whenever completion state changes
+  useEffect(() => {
+    onProgressChange?.(id, doneCount, total);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doneCount, total]);
+
+  const effectiveProgress = total > 0 ? doneCount / total : 0;
+  const remainingMins     = tasks.reduce((sum, t, i) =>
+    !doneMap[i] && t.minutes ? sum + t.minutes : sum, 0);
+
+  // Main checkbox: check all / uncheck all
+  const handleMainCheck = () => {
+    if (allDone) {
+      setDoneMap({});
+    } else {
+      const all: Record<number, boolean> = {};
+      tasks.forEach((_, i) => { all[i] = true; });
+      setDoneMap(all);
+    }
+  };
+
+  // Subtask: toggle individual, auto-syncs main via allDone
+  const toggleSubtask = (i: number) =>
+    setDoneMap((prev) => ({ ...prev, [i]: !prev[i] }));
+
+  return (
+    <div
+      id={id}
+      className="mx-4 bg-white"
+      style={{ boxShadow: CARD_SHADOW, borderRadius: 14, overflow: "hidden" }}
+    >
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3" style={{ height: 85, padding: "0 16px" }}>
+        <CircularProgress progress={effectiveProgress} color={avatarColor} />
+
+        <div className="flex-1">
+          <div className="font-bold text-black" style={{ fontSize: 15 }}>{title}</div>
+          <div className="font-normal" style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{timeRange}</div>
+
+          {/* Tappable task-list row */}
+          <div
+            className="flex items-center gap-1 mt-1"
+            style={{ cursor: "pointer", userSelect: "none", width: "fit-content" }}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <span className="font-normal" style={{ fontSize: 12, color: "#999" }}>
+              Task list ({total})
+            </span>
+            <svg
+              width="10" height="10" viewBox="0 0 10 10" fill="none"
+              style={{ transition: `transform ${MS.dExpand} ${MS.eOut}`, transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+            >
+              <path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
+
+        <Checkbox checked={allDone} onToggle={handleMainCheck} />
+      </div>
+
+      {/* ── Expanded subtask list ── */}
+      <div
+        style={{
+          maxHeight: expanded ? `${tasks.length * 56 + 52}px` : "0px",
+          overflow: "hidden",
+          transition: expanded
+            ? `max-height ${MS.dExpand} ${MS.eOut}`
+            : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
+        }}
+      >
+        <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "0 16px" }} />
+
+        {tasks.map((task, i) => (
+          <div
+            key={i}
+            className="flex items-center"
+            style={{ padding: "10px 16px", gap: 12, minHeight: 48 }}
+          >
+            {/* Circle subtask checkbox */}
+            <div
+              onClick={() => toggleSubtask(i)}
+              style={{
+                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                cursor: "pointer",
+                border: doneMap[i] ? "none" : "2px solid rgba(0,0,0,0.18)",
+                background: doneMap[i] ? BLUE : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: `background ${MS.dCheck} ${MS.eOut}`,
+              }}
+            >
+              {doneMap[i] && (
+                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                  <path d="M1 4.5l3 3L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
+
+            {/* Task label */}
+            <span className="flex-1 font-normal text-black" style={{ fontSize: 13, lineHeight: "1.3" }}>
+              {task.label}
+            </span>
+
+            {/* Time estimate */}
+            <div className="flex flex-col items-center" style={{ minWidth: 24 }}>
+              {task.minutes !== null ? (
+                <>
+                  <span className="font-bold text-black" style={{ fontSize: 13, lineHeight: 1 }}>
+                    {task.minutes}
+                  </span>
+                  <span style={{ fontSize: 10, color: "#999", lineHeight: 1.3 }}>min</span>
+                </>
+              ) : (
+                <span className="font-bold" style={{ fontSize: 13, color: "#999" }}>–</span>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {/* Remaining time footer */}
+        <div
+          style={{
+            margin: "4px 16px 12px",
+            background: "#F0F4FF",
+            borderRadius: 8,
+            padding: "8px 14px",
+            display: "flex", alignItems: "center", gap: 6,
+          }}
+        >
+          <span style={{ fontSize: 12, color: "#555" }}>Remaining Time Estimation:</span>
+          <span className="font-semibold" style={{ fontSize: 12, color: "#333" }}>
+            {formatRemaining(remainingMins)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GapBar({ id, label }: { id: string; label: string }) {
+  return (
+    <div
+      id={id}
+      className="mx-4 flex items-center justify-center"
+      style={{
+        height: 28,
+        borderRadius: 6,
+        backgroundImage:
+          "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 8px)",
+        backgroundColor: "#F5F5F5",
+      }}
+    >
+      <span className="font-normal text-black/40" style={{ fontSize: 11 }}>{label}</span>
+    </div>
+  );
+}
+
+function FABButton() {
+  return (
+    <div
+      id="fab-button"
+      className="ms-btn absolute flex items-center justify-center"
+      style={{
+        right: 16,
+        bottom: 83 + 18,
+        width: 60,
+        height: 60,
+        borderRadius: 20,
+        background: BLUE,
+        boxShadow: `0 4px 16px ${BLUE}66`,
+        zIndex: 20,
+        cursor: "pointer",
+      }}
+    >
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+        <path d="M13 5v16M5 13h16" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+function TabBar() {
+  return (
+    <div
+      id="tab-bar"
+      className="absolute bottom-0 left-0 right-0 flex border-t border-black/8 bg-white"
+      style={{ height: 83 }}
+    >
+      {/* Schedule (active) */}
+      <div id="tab-schedule" className="flex-1 flex flex-col items-center justify-center gap-1 pb-4">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+          <rect x="2" y="3" width="22" height="20" rx="4" stroke={BLUE} strokeWidth="2" />
+          <rect x="2" y="3" width="22" height="8" rx="4" fill={BLUE} />
+          <rect x="7" y="0.5" width="2.5" height="5" rx="1.25" fill={BLUE} />
+          <rect x="16.5" y="0.5" width="2.5" height="5" rx="1.25" fill={BLUE} />
+          <rect x="7" y="14" width="3" height="3" rx="1" fill={BLUE} />
+          <rect x="11.5" y="14" width="3" height="3" rx="1" fill={BLUE} />
+          <rect x="16" y="14" width="3" height="3" rx="1" fill={BLUE} />
+        </svg>
+        <span className="font-bold" style={{ fontSize: 11, color: BLUE }}>Schedule</span>
+      </div>
+      {/* Profile (inactive) */}
+      <div id="tab-profile" className="flex-1 flex flex-col items-center justify-center gap-1 pb-4">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+          <circle cx="13" cy="9" r="5" stroke="#888" strokeWidth="2" />
+          <path d="M3 23c0-4 4.5-7 10-7s10 3 10 7" stroke="#888" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <span className="font-normal" style={{ fontSize: 11, color: "#888" }}>Profile</span>
+      </div>
+      {/* Home indicator */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{ bottom: 8, width: 134, height: 5, borderRadius: 100, background: "#000" }}
+      />
+    </div>
+  );
+}
+
+// ─── iPhone 17 Pro Max Shell ──────────────────────────────────────────────────
+
+function IPhoneShell({ children }: { children: React.ReactNode }) {
+  const SCREEN_W = 393;
+  const SCREEN_H = 852;
+  const BEZEL = 14;
+  const SHELL_W = SCREEN_W + BEZEL * 2;
+  const SHELL_H = SCREEN_H + BEZEL * 2;
+
+  return (
+    <div
+      style={{
+        width: SHELL_W,
+        height: SHELL_H,
+        borderRadius: 56,
+        background: "linear-gradient(145deg, #2a2a2c, #1a1a1c)",
+        boxShadow:
+          "0 0 0 1px #3a3a3c, inset 0 0 0 1px rgba(255,255,255,0.08), 0 30px 80px rgba(0,0,0,0.6), 0 10px 30px rgba(0,0,0,0.4)",
+        padding: BEZEL,
+        position: "relative",
+        flexShrink: 0,
+      }}
+    >
+      {/* Side buttons — volume (left) */}
+      <div style={{ position: "absolute", left: -3, top: 130, width: 3, height: 36, borderRadius: "2px 0 0 2px", background: "#3a3a3c" }} />
+      <div style={{ position: "absolute", left: -3, top: 178, width: 3, height: 62, borderRadius: "2px 0 0 2px", background: "#3a3a3c" }} />
+      <div style={{ position: "absolute", left: -3, top: 252, width: 3, height: 62, borderRadius: "2px 0 0 2px", background: "#3a3a3c" }} />
+      {/* Power button (right) */}
+      <div style={{ position: "absolute", right: -3, top: 188, width: 3, height: 90, borderRadius: "0 2px 2px 0", background: "#3a3a3c" }} />
+
+      {/* Screen */}
+      <div
+        style={{
+          width: SCREEN_W,
+          height: SCREEN_H,
+          borderRadius: 44,
+          overflow: "hidden",
+          position: "relative",
+          background: "#fff",
+        }}
+      >
+        {/* Dynamic Island */}
+        <div
+          id="dynamic-island"
+          style={{
+            position: "absolute",
+            top: 14,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 120,
+            height: 34,
+            borderRadius: 20,
+            background: "#000",
+            zIndex: 100,
+          }}
+        />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Dashboard Screen ─────────────────────────────────────────────────────────
+
+function DashboardScreen() {
+  const scrollRef      = useRef<HTMLDivElement>(null);
+  const anytimeRef     = useRef<HTMLDivElement>(null);
+  const plannedRef     = useRef<HTMLDivElement>(null);
+  const [anytimeExpanded, setAnytimeExpanded] = useState(true);
+  const [plannedExpanded, setPlannedExpanded] = useState(true);
+
+  // Read content height on every render so the clip div always animates
+  // to the real scrollHeight instead of an arbitrary 9999px ceiling.
+  // A 400px buffer is kept to accommodate inner card expansions.
+  const anytimeMaxH = anytimeExpanded
+    ? `${(anytimeRef.current?.scrollHeight ?? 600) + 400}px`
+    : "0px";
+  const plannedMaxH = plannedExpanded
+    ? `${(plannedRef.current?.scrollHeight ?? 800) + 400}px`
+    : "0px";
+
+  // Aggregate task progress from all cards { id → { done, total } }
+  const [progressMap, setProgressMap] = useState<Record<string, { done: number; total: number }>>({});
+  const handleProgressChange = useCallback((id: string, done: number, total: number) => {
+    setProgressMap((prev) => {
+      const entry = prev[id];
+      if (entry && entry.done === done && entry.total === total) return prev; // no-op
+      return { ...prev, [id]: { done, total } };
+    });
+  }, []);
+
+  const { totalDone, totalAll } = Object.values(progressMap).reduce(
+    (acc, { done, total }) => ({ totalDone: acc.totalDone + done, totalAll: acc.totalAll + total }),
+    { totalDone: 0, totalAll: 0 }
+  );
+  const dayProgress = totalAll > 0 ? totalDone / totalAll : 0;
+
+  // Drag state stored in a ref so it never causes re-renders
+  const drag = useRef({ active: false, startY: 0, startScroll: 0 });
+
+  const getClientY = (e: MouseEvent | TouchEvent) =>
+    "touches" in e ? e.touches[0].clientY : e.clientY;
+
+  const onDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    drag.current = {
+      active: true,
+      startY: getClientY(e.nativeEvent),
+      startScroll: el.scrollTop,
+    };
+    el.style.cursor = "grabbing";
+    el.style.userSelect = "none";
+  }, []);
+
+  const onDragMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!drag.current.active || !scrollRef.current) return;
+    const dy = getClientY(e.nativeEvent) - drag.current.startY;
+    scrollRef.current.scrollTop = drag.current.startScroll - dy;
+  }, []);
+
+  const onDragEnd = useCallback(() => {
+    drag.current.active = false;
+    if (!scrollRef.current) return;
+    scrollRef.current.style.cursor = "grab";
+    scrollRef.current.style.userSelect = "";
+  }, []);
+
+  return (
+    <div id="dashboard-screen" style={{ width: 393, height: 852, position: "relative", fontFamily: "var(--font-inter)" }}>
+      <style>{`#scroll-content::-webkit-scrollbar { display: none; }`}</style>
+
+      {/* ── Fixed header (StatusBar + Header + WeekStrip) ── */}
+      <div
+        id="fixed-header"
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0,
+          zIndex: 9, background: "#fff",
+        }}
+      >
+        <StatusBar />
+        <Header />
+        <WeekStrip progress={dayProgress} />
+      </div>
+
+      {/* Scrollable content — starts below the fixed header */}
+      <div
+        id="scroll-content"
+        ref={scrollRef}
+        className="no-scrollbar"
+        onMouseDown={onDragStart}
+        onMouseMove={onDragMove}
+        onMouseUp={onDragEnd}
+        onMouseLeave={onDragEnd}
+        onTouchStart={onDragStart}
+        onTouchMove={onDragMove}
+        onTouchEnd={onDragEnd}
+        style={{
+          position: "absolute",
+          top: 189,
+          bottom: 83,
+          left: 0,
+          right: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          cursor: "grab",
+          msOverflowStyle: "none",
+          scrollbarWidth: "none",
+        } as React.CSSProperties}
+      >
+        <div style={{ paddingBottom: 100 }}>
+
+          {/* ── Anytime Section ── */}
+          <SectionHeader
+            id="anytime-header"
+            title="Anytime"
+            badge={<DueTodayBadge />}
+            expanded={anytimeExpanded}
+            onToggle={() => setAnytimeExpanded((v) => !v)}
+          />
+          <div
+            style={{
+              maxHeight: anytimeMaxH,
+              overflow: "hidden",
+              transition: anytimeExpanded
+                ? `max-height ${MS.dExpand} ${MS.eOut}`
+                : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
+            }}
+          >
+          <div ref={anytimeRef} id="anytime-cards" className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
+            <TaskCard
+              id="card-biology-study"
+              title="Biology study"
+              accentColor="#7BC875"
+              onProgressChange={handleProgressChange}
+              tasks={[
+                { label: "Review chapter notes",              minutes: 15 },
+                { label: "Read assigned textbook pages",      minutes: 20 },
+                { label: "Watch lecture recap video",         minutes: 10 },
+                { label: "Solve practice problems",           minutes: 15 },
+                { label: "Review diagrams and figures",       minutes: 10 },
+                { label: "Write key term definitions",        minutes: 10 },
+                { label: "Complete practice quiz",            minutes: 15 },
+                { label: "Review quiz answers",               minutes: 5  },
+              ]}
+            />
+            <TaskCard
+              id="card-math-prep"
+              title="Math prep"
+              accentColor="#D1AB30"
+              onProgressChange={handleProgressChange}
+              tasks={[
+                { label: "Review class notes",                minutes: 10 },
+                { label: "Read textbook section",             minutes: 15 },
+                { label: "Watch tutorial video",              minutes: 10 },
+                { label: "Solve example problems",            minutes: 20 },
+                { label: "Check answers and correct errors",  minutes: 10 },
+                { label: "Complete assigned exercises",       minutes: 25 },
+                { label: "Review formulas and theorems",      minutes: 10 },
+                { label: "Practice mental math",              minutes: 5  },
+                { label: "Prepare questions for tutor",       minutes: 5  },
+                { label: "Summarize key concepts",            minutes: 5  },
+                { label: "Test yourself with flashcards",     minutes: 10 },
+              ]}
+            />
+            <TaskCard
+              id="card-reading"
+              title="15 min reading"
+              accentColor="#A6A6A6"
+              onProgressChange={handleProgressChange}
+            />
+          </div>
+          </div>
+
+          {/* ── Planned Section ── */}
+          <SectionHeader
+            id="planned-header"
+            title="Planned"
+            expanded={plannedExpanded}
+            onToggle={() => setPlannedExpanded((v) => !v)}
+          />
+          <div
+            style={{
+              maxHeight: plannedMaxH,
+              overflow: "hidden",
+              transition: plannedExpanded
+                ? `max-height ${MS.dExpand} ${MS.eOut}`
+                : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
+            }}
+          >
+          <div ref={plannedRef} id="planned-cards" className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
+            <TimedCard
+              id="card-go-for-a-run"
+              title="Go for a run"
+              timeRange="8:00AM → 9:00 AM"
+              avatarColor="#7BC875"
+              onProgressChange={handleProgressChange}
+              tasks={[
+                { label: "Put on running shoes and gear",            minutes: 4  },
+                { label: "Check route conditions and set a distance goal", minutes: 5 },
+                { label: "Start with an easy trail jog",             minutes: 20 },
+                { label: "Rehydrate with a few sips of water",       minutes: 5  },
+                { label: "Push effort on bleachers",                 minutes: 16 },
+                { label: "Maintain steady breathing and form",       minutes: null },
+                { label: "Finish with a short recovery walk",        minutes: 10 },
+              ]}
+            />
+            <GapBar id="gap-1hr" label="1:00hr gap" />
+            <TimedCard
+              id="card-biology-class"
+              title="Biology class"
+              timeRange="10:00AM → 11:00 AM"
+              avatarColor="#558BF7"
+              onProgressChange={handleProgressChange}
+              tasks={[
+                { label: "Review last lecture notes",                minutes: 10 },
+                { label: "Complete assigned reading",                minutes: 20 },
+                { label: "Prepare questions for professor",          minutes: 5  },
+                { label: "Participate in class discussion",          minutes: null },
+                { label: "Write a brief post-class summary",         minutes: 10 },
+                { label: "Schedule office hours if needed",          minutes: 5  },
+                { label: "Update study calendar",                    minutes: 5  },
+                { label: "Start homework outline",                   minutes: 5  },
+              ]}
+            />
+            <GapBar id="gap-30min" label="30min gap" />
+            <TimedCard
+              id="card-clean-dorm"
+              title="Clean dorm room"
+              timeRange="11:30AM → 12:00 PM"
+              avatarColor="#A6A6A6"
+              onProgressChange={handleProgressChange}
+              tasks={[
+                { label: "Clear desk and put away books",            minutes: 5  },
+                { label: "Make the bed",                             minutes: 3  },
+                { label: "Vacuum or sweep the floor",                minutes: 7  },
+                { label: "Take out the trash",                       minutes: 2  },
+                { label: "Wipe down surfaces",                       minutes: 5  },
+                { label: "Organize closet",                          minutes: 8  },
+                { label: "Do laundry",                               minutes: null },
+                { label: "Restock supplies",                         minutes: 5  },
+              ]}
+            />
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <FABButton />
+      <TabBar />
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function Home() {
+  return (
+    <div
+      className={`${inter.variable} min-h-screen flex items-center justify-center`}
+      style={{ background: "#E8E8ED", fontFamily: "var(--font-inter)" }}
+    >
+      <IPhoneShell>
+        <DashboardScreen />
+      </IPhoneShell>
+    </div>
+  );
+}
