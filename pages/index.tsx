@@ -825,7 +825,15 @@ function IPhoneShell({ children }: { children: React.ReactNode }) {
 
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
 
-function DashboardScreen() {
+function DashboardScreen({
+  width = 393,
+  height = 852,
+  showIsland = false,
+}: {
+  width?: number | string;
+  height?: number | string;
+  showIsland?: boolean;
+}) {
   const scrollRef      = useRef<HTMLDivElement>(null);
   const anytimeRef     = useRef<HTMLDivElement>(null);
   const plannedRef     = useRef<HTMLDivElement>(null);
@@ -890,8 +898,21 @@ function DashboardScreen() {
   }, []);
 
   return (
-    <div id="dashboard-screen" style={{ width: 393, height: 852, position: "relative", fontFamily: "var(--font-inter)" }}>
+    <div id="dashboard-screen" style={{ width, height, position: "relative", fontFamily: "var(--font-inter)", overflow: "hidden" }}>
       <style>{`#scroll-content::-webkit-scrollbar { display: none; }`}</style>
+
+      {/* Dynamic Island — shown only for iPhone preset */}
+      {showIsland && (
+        <div
+          id="dynamic-island"
+          style={{
+            position: "absolute", top: 14, left: "50%",
+            transform: "translateX(-50%)",
+            width: 120, height: 34, borderRadius: 20,
+            background: "#000", zIndex: 100,
+          }}
+        />
+      )}
 
       {/* ── Fixed header (StatusBar + Header + WeekStrip) ── */}
       <div
@@ -1075,82 +1096,193 @@ function DashboardScreen() {
   );
 }
 
+// ─── Viewport presets ─────────────────────────────────────────────────────────
+
+const PRESETS = {
+  iphone17:   { label: "iPhone 17 Pro Max", w: 440,  h: 956,  showIsland: true  },
+  android:    { label: "Android Large",     w: 412,  h: 917,  showIsland: false },
+  responsive: { label: "Responsive",        w: null, h: null, showIsland: false },
+} as const;
+type PresetKey = keyof typeof PRESETS;
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const SHELL_W = 393 + 14 * 2; // 421
-const SHELL_H = 852 + 14 * 2; // 880
-
 export default function Home() {
-  const [scale, setScale] = useState(1);
+  const [preset,      setPreset]      = useState<PresetKey>("iphone17");
+  const [scale,       setScale]       = useState(1);
+  const [menuOpen,    setMenuOpen]    = useState(true);
 
-  // Auto-fit to viewport height on mount and window resize
+  const isResponsive = preset === "responsive";
+  const { w, h, showIsland } = PRESETS[preset];
+
+  // Auto-fit scale to viewport whenever preset or window size changes
   useEffect(() => {
+    if (isResponsive) return;
     const fit = () => {
-      const s = Math.min(1, (window.innerHeight - 48) / SHELL_H);
-      setScale(Math.round(s * 100) / 100);
+      const s = Math.min(1, (window.innerHeight - 48) / h!);
+      setScale(parseFloat(s.toFixed(2)));
     };
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
-  }, []);
+  }, [preset, isResponsive, h]);
+
+  // Visual dimensions after scaling
+  const visualW = isResponsive ? "100vw" : w! * scale;
+  const visualH = isResponsive ? "100vh" : h! * scale;
 
   return (
     <div
-      className={`${inter.variable} min-h-screen flex flex-col items-center justify-center`}
-      style={{ background: "#E8E8ED", fontFamily: "var(--font-inter)" }}
+      className={`${inter.variable}`}
+      style={{
+        minHeight: "100vh", width: "100%",
+        background: "#E8E8ED",
+        fontFamily: "var(--font-inter)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        overflow: isResponsive ? "hidden" : undefined,
+      }}
     >
-      {/* Scaled shell — wrapper collapses to visual size so page doesn't over-scroll */}
-      <div style={{ width: SHELL_W * scale, height: SHELL_H * scale, flexShrink: 0 }}>
-        <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: SHELL_W, height: SHELL_H }}>
-          <IPhoneShell>
-            <DashboardScreen />
-          </IPhoneShell>
+      {/* ── Viewport frame ── */}
+      <div style={{ width: visualW, height: visualH, flexShrink: 0, position: "relative" }}>
+        <div
+          style={{
+            transform: isResponsive ? undefined : `scale(${scale})`,
+            transformOrigin: "top left",
+            width:  isResponsive ? "100%" : w!,
+            height: isResponsive ? "100%" : h!,
+            background: "#fff",
+            overflow: "hidden",
+            // Subtle shadow so the frame reads against the background
+            boxShadow: isResponsive ? "none" : "0 8px 40px rgba(0,0,0,0.18)",
+            borderRadius: isResponsive ? 0 : 8,
+          }}
+        >
+          <DashboardScreen
+            width={isResponsive ? "100%" : w!}
+            height={isResponsive ? "100%" : h!}
+            showIsland={showIsland}
+          />
         </div>
       </div>
 
-      {/* Floating scale slider */}
+      {/* ── Dev menu ── */}
       <div
         style={{
-          position: "fixed",
-          bottom: 24,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "rgba(30,30,32,0.82)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderRadius: 999,
-          padding: "8px 18px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          zIndex: 1000,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
-          userSelect: "none",
+          position: "fixed", top: 16, left: 16, zIndex: 2000,
+          display: "flex", flexDirection: "column", gap: 8,
+          alignItems: "flex-start",
         }}
       >
-        {/* Shrink icon */}
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M1 1l4 4M1 1h3M1 1v3M13 13l-4-4M13 13h-3M13 13v-3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
+        {/* Toggle button — always visible */}
+        <button
+          onClick={() => setMenuOpen(v => !v)}
+          title={menuOpen ? "Hide menu" : "Show menu"}
+          style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: menuOpen ? "rgba(30,30,32,0.90)" : "rgba(30,30,32,0.65)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+            transition: `background ${MS.dFast} ${MS.eOut}`,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="2" width="14" height="12" rx="2.5" stroke="rgba(255,255,255,0.85)" strokeWidth="1.4"/>
+            <path d="M1 6h14" stroke="rgba(255,255,255,0.85)" strokeWidth="1.4"/>
+            <path d="M5 9.5h6M5 11.5h4" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+        </button>
 
-        <input
-          type="range"
-          min={0.3}
-          max={1}
-          step={0.01}
-          value={scale}
-          onChange={(e) => setScale(Number(e.target.value))}
-          style={{ width: 120, accentColor: "#558BF7", cursor: "pointer" }}
-        />
+        {/* Menu panel */}
+        {menuOpen && (
+          <div
+            style={{
+              background: "rgba(22,22,24,0.88)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              borderRadius: 14,
+              padding: "12px 14px",
+              display: "flex", flexDirection: "column", gap: 10,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
+              minWidth: 210,
+            }}
+          >
+            {/* Section label */}
+            <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Viewport
+            </span>
 
-        {/* Expand icon */}
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M5 1H1v4M9 1h4v4M5 13H1v-4M9 13h4v-4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+            {/* Preset options */}
+            {(Object.keys(PRESETS) as PresetKey[]).map((key) => {
+              const p = PRESETS[key];
+              const active = preset === key;
+              return (
+                <div
+                  key={key}
+                  onClick={() => setPreset(key)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 10, cursor: "pointer", borderRadius: 8,
+                    padding: "7px 10px",
+                    background: active ? "rgba(85,139,247,0.22)" : "transparent",
+                    transition: `background ${MS.dFast} ${MS.eOut}`,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {/* Selection dot */}
+                    <div style={{
+                      width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                      border: active ? "none" : "1.5px solid rgba(255,255,255,0.25)",
+                      background: active ? BLUE : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {active && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff" }} />}
+                    </div>
+                    <span style={{ fontSize: 13, color: active ? "#fff" : "rgba(255,255,255,0.65)", fontWeight: active ? 500 : 400 }}>
+                      {p.label}
+                    </span>
+                  </div>
+                  {p.w && (
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", flexShrink: 0 }}>
+                      {p.w}×{p.h}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
 
-        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", minWidth: 34, textAlign: "right" }}>
-          {Math.round(scale * 100)}%
-        </span>
+            {/* Divider */}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "0 -2px" }} />
+
+            {/* Scale slider */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, opacity: isResponsive ? 0.35 : 1, transition: `opacity ${MS.dFast} ${MS.eOut}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Scale
+                </span>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                  {Math.round(scale * 100)}%
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <rect x="1" y="3" width="10" height="7" rx="1.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2"/>
+                </svg>
+                <input
+                  type="range" min={0.3} max={1} step={0.01} value={scale}
+                  disabled={isResponsive}
+                  onChange={(e) => setScale(Number(e.target.value))}
+                  style={{ flex: 1, accentColor: BLUE, cursor: isResponsive ? "not-allowed" : "pointer" }}
+                />
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <rect x="0.5" y="1.5" width="11" height="9" rx="1.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
