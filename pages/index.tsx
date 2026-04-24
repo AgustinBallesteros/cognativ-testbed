@@ -1077,15 +1077,81 @@ function DashboardScreen() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const SHELL_W = 393 + 14 * 2; // 421
+const SHELL_H = 852 + 14 * 2; // 880
+
 export default function Home() {
+  const [scale, setScale] = useState(1);
+
+  // Auto-fit to viewport height on mount and window resize
+  useEffect(() => {
+    const fit = () => {
+      const s = Math.min(1, (window.innerHeight - 48) / SHELL_H);
+      setScale(Math.round(s * 100) / 100);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+
   return (
     <div
-      className={`${inter.variable} min-h-screen flex items-center justify-center`}
+      className={`${inter.variable} min-h-screen flex flex-col items-center justify-center`}
       style={{ background: "#E8E8ED", fontFamily: "var(--font-inter)" }}
     >
-      <IPhoneShell>
-        <DashboardScreen />
-      </IPhoneShell>
+      {/* Scaled shell — wrapper collapses to visual size so page doesn't over-scroll */}
+      <div style={{ width: SHELL_W * scale, height: SHELL_H * scale, flexShrink: 0 }}>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: SHELL_W, height: SHELL_H }}>
+          <IPhoneShell>
+            <DashboardScreen />
+          </IPhoneShell>
+        </div>
+      </div>
+
+      {/* Floating scale slider */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "rgba(30,30,32,0.82)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderRadius: 999,
+          padding: "8px 18px",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          zIndex: 1000,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
+          userSelect: "none",
+        }}
+      >
+        {/* Shrink icon */}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M1 1l4 4M1 1h3M1 1v3M13 13l-4-4M13 13h-3M13 13v-3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+
+        <input
+          type="range"
+          min={0.3}
+          max={1}
+          step={0.01}
+          value={scale}
+          onChange={(e) => setScale(Number(e.target.value))}
+          style={{ width: 120, accentColor: "#558BF7", cursor: "pointer" }}
+        />
+
+        {/* Expand icon */}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M5 1H1v4M9 1h4v4M5 13H1v-4M9 13h4v-4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", minWidth: 34, textAlign: "right" }}>
+          {Math.round(scale * 100)}%
+        </span>
+      </div>
     </div>
   );
 }
