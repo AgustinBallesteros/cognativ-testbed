@@ -752,11 +752,6 @@ function TabBar() {
         </svg>
         <span className="font-normal" style={{ fontSize: 11, color: "#888" }}>Profile</span>
       </div>
-      {/* Home indicator */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2"
-        style={{ bottom: 8, width: 134, height: 5, borderRadius: 100, background: "#000" }}
-      />
     </div>
   );
 }
@@ -922,7 +917,6 @@ function DashboardScreen({
           zIndex: 9, background: "#fff",
         }}
       >
-        <StatusBar />
         <Header />
         <WeekStrip progress={dayProgress} />
       </div>
@@ -941,7 +935,7 @@ function DashboardScreen({
         onTouchEnd={onDragEnd}
         style={{
           position: "absolute",
-          top: 189,
+          top: 135,
           bottom: 83,
           left: 0,
           right: 0,
