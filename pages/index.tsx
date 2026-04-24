@@ -823,11 +823,9 @@ function IPhoneShell({ children }: { children: React.ReactNode }) {
 function DashboardScreen({
   width = 393,
   height = 852,
-  showIsland = false,
 }: {
   width?: number | string;
   height?: number | string;
-  showIsland?: boolean;
 }) {
   const scrollRef      = useRef<HTMLDivElement>(null);
   const anytimeRef     = useRef<HTMLDivElement>(null);
@@ -895,19 +893,6 @@ function DashboardScreen({
   return (
     <div id="dashboard-screen" style={{ width, height, position: "relative", fontFamily: "var(--font-inter)", overflow: "hidden" }}>
       <style>{`#scroll-content::-webkit-scrollbar { display: none; }`}</style>
-
-      {/* Dynamic Island — shown only for iPhone preset */}
-      {showIsland && (
-        <div
-          id="dynamic-island"
-          style={{
-            position: "absolute", top: 14, left: "50%",
-            transform: "translateX(-50%)",
-            width: 120, height: 34, borderRadius: 20,
-            background: "#000", zIndex: 100,
-          }}
-        />
-      )}
 
       {/* ── Fixed header (StatusBar + Header + WeekStrip) ── */}
       <div
@@ -1093,9 +1078,9 @@ function DashboardScreen({
 // ─── Viewport presets ─────────────────────────────────────────────────────────
 
 const PRESETS = {
-  iphone17:   { label: "iPhone 17 Pro Max", w: 440,  h: 956,  showIsland: true  },
-  android:    { label: "Android Large",     w: 412,  h: 917,  showIsland: false },
-  responsive: { label: "Responsive",        w: null, h: null, showIsland: false },
+  iphone17:   { label: "iPhone 17 Pro Max", w: 440,  h: 956  },
+  android:    { label: "Android Large",     w: 412,  h: 917  },
+  responsive: { label: "Responsive",        w: null, h: null },
 } as const;
 type PresetKey = keyof typeof PRESETS;
 
@@ -1106,8 +1091,98 @@ export default function Home() {
   const [scale,       setScale]       = useState(1);
   const [menuOpen,    setMenuOpen]    = useState(true);
 
+  // ── Dev menu drag-to-reposition ────────────────────────────────────────────
+  const MENU_ORIGIN = { top: 16, left: 16 };
+  const [menuPos,  setMenuPos]  = useState(MENU_ORIGIN);
+  const menuPosRef = useRef(MENU_ORIGIN);
+
+  // Stores drag and double-tap state without triggering re-renders
+  const menuDrag = useRef({
+    active:          false,
+    startX:          0,
+    startY:          0,
+    startLeft:       16,
+    startTop:        16,
+    moved:           false,
+    longPressTimer:  null as ReturnType<typeof setTimeout> | null,
+  });
+  const lastTap = useRef(0);
+
+  // Global pointermove / pointerup so drag keeps working when pointer leaves the button
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!menuDrag.current.active) return;
+      const dx = e.clientX - menuDrag.current.startX;
+      const dy = e.clientY - menuDrag.current.startY;
+      const newLeft = Math.max(0, Math.min(window.innerWidth  - 40, menuDrag.current.startLeft + dx));
+      const newTop  = Math.max(0, Math.min(window.innerHeight - 40, menuDrag.current.startTop  + dy));
+      menuDrag.current.moved = true;
+      menuPosRef.current = { top: newTop, left: newLeft };
+      setMenuPos({ top: newTop, left: newLeft });
+    };
+    const onUp = () => {
+      if (!menuDrag.current.active) return;
+      menuDrag.current.active = false;
+      if (menuDrag.current.longPressTimer) {
+        clearTimeout(menuDrag.current.longPressTimer);
+        menuDrag.current.longPressTimer = null;
+      }
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup",   onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup",   onUp);
+    };
+  }, []);
+
+  const onMenuPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const now = Date.now();
+
+    // ── Double-tap: restore to origin ────────────────────────────────────────
+    if (now - lastTap.current < 350) {
+      lastTap.current = 0;
+      menuPosRef.current = MENU_ORIGIN;
+      setMenuPos(MENU_ORIGIN);
+      return;
+    }
+    lastTap.current = now;
+
+    // ── Start long-press timer (300ms → activate drag) ────────────────────────
+    const startX = e.clientX;
+    const startY = e.clientY;
+    menuDrag.current.moved = false;
+
+    const timer = setTimeout(() => {
+      menuDrag.current.active    = true;
+      menuDrag.current.startX    = startX;
+      menuDrag.current.startY    = startY;
+      menuDrag.current.startLeft = menuPosRef.current.left;
+      menuDrag.current.startTop  = menuPosRef.current.top;
+      menuDrag.current.longPressTimer = null;
+      setMenuOpen(false);          // auto-close panel when drag begins
+    }, 300);
+
+    menuDrag.current.longPressTimer = timer;
+  }, []);
+
+  const onMenuClick = useCallback(() => {
+    // Suppress toggle when the pointer was used for dragging
+    if (menuDrag.current.moved) {
+      menuDrag.current.moved = false;
+      return;
+    }
+    // Cancel if pointer-down already started a long-press timer (tap released early)
+    if (menuDrag.current.longPressTimer) {
+      clearTimeout(menuDrag.current.longPressTimer);
+      menuDrag.current.longPressTimer = null;
+    }
+    setMenuOpen(v => !v);
+  }, []);
+
   const isResponsive = preset === "responsive";
-  const { w, h, showIsland } = PRESETS[preset];
+  const { w, h } = PRESETS[preset];
 
   // Auto-fit scale to viewport whenever preset or window size changes
   useEffect(() => {
@@ -1154,7 +1229,6 @@ export default function Home() {
           <DashboardScreen
             width={isResponsive ? "100%" : w!}
             height={isResponsive ? "100%" : h!}
-            showIsland={showIsland}
           />
         </div>
       </div>
@@ -1162,15 +1236,16 @@ export default function Home() {
       {/* ── Dev menu ── */}
       <div
         style={{
-          position: "fixed", top: 16, left: 16, zIndex: 2000,
+          position: "fixed", top: menuPos.top, left: menuPos.left, zIndex: 2000,
           display: "flex", flexDirection: "column", gap: 8,
           alignItems: "flex-start",
         }}
       >
-        {/* Toggle button — always visible */}
+        {/* Toggle button — always visible; tap-and-hold to drag, double-tap to reset */}
         <button
-          onClick={() => setMenuOpen(v => !v)}
-          title={menuOpen ? "Hide menu" : "Show menu"}
+          onPointerDown={onMenuPointerDown}
+          onClick={onMenuClick}
+          title={menuOpen ? "Hide menu (hold to drag, double-tap to reset)" : "Show menu (hold to drag, double-tap to reset)"}
           style={{
             width: 36, height: 36, borderRadius: 10,
             background: menuOpen ? "rgba(30,30,32,0.90)" : "rgba(30,30,32,0.65)",
