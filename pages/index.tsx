@@ -1983,8 +1983,15 @@ function getMonthInfo(offset: number) {
   };
 }
 
-// In our prototype CURRENT_DAY=2 (Monday) = April 2 in the base month
-const MONTH_TODAY_DATE = 2;
+// April 1, 2026 = Wednesday (JS getDay() = 3).
+// Our week IDs: 1=Sun … 7=Sat. Mapping April dates 1-7 to week day IDs:
+//   Apr 1(Wed)→4, 2(Thu)→5, 3(Fri)→6, 4(Sat)→7, 5(Sun)→1, 6(Mon)→2, 7(Tue)→3
+const APRIL_START_DOW = 3; // Wednesday
+const APRIL_DATE_TO_DAYID: Record<number, number> = {
+  1: 4, 2: 5, 3: 6, 4: 7, 5: 1, 6: 2, 7: 3,
+};
+// CURRENT_DAY=2 (Monday) corresponds to April 6 in our prototype month
+const MONTH_TODAY_DATE = 6;
 
 function MonthCellRing({ progress, size = 26 }: { progress: number; size?: number }) {
   const sw = 2;
@@ -2037,8 +2044,9 @@ function MonthGrid({
   const DOW_LABELS = ["S","M","T","W","T","F","S"];
 
   const getDotColors = (date: number): string[] => {
-    if (offset !== 0 || date < 1 || date > 7) return [];
-    const day = DAY_CONTENT[date];
+    const dayId = offset === 0 ? APRIL_DATE_TO_DAYID[date] : undefined;
+    if (!dayId) return [];
+    const day = DAY_CONTENT[dayId];
     if (!day) return [];
     const colors: string[] = [];
     for (const t of day.anytime) colors.push(t.accentColor);
@@ -2047,8 +2055,9 @@ function MonthGrid({
   };
 
   const getRingProgress = (date: number): number => {
-    if (offset !== 0 || date < 1 || date > 7) return 0;
-    const map  = progressMaps[date] ?? {};
+    const dayId = offset === 0 ? APRIL_DATE_TO_DAYID[date] : undefined;
+    if (!dayId) return 0;
+    const map  = progressMaps[dayId] ?? {};
     const vals = Object.values(map);
     if (vals.length === 0) return 0;
     const { done, total } = vals.reduce(
@@ -2079,8 +2088,8 @@ function MonthGrid({
               }
 
               const isToday  = offset === 0 && date === MONTH_TODAY_DATE;
-              const hasTasks = offset === 0 && date >= 1 && date <= 7;
-              const dayId    = hasTasks ? date : null;
+              const dayId    = offset === 0 ? (APRIL_DATE_TO_DAYID[date] ?? null) : null;
+              const hasTasks = dayId !== null;
               const allDots  = getDotColors(date);
               const maxDots  = 3;
               const visibleDots = allDots.slice(0, maxDots);
