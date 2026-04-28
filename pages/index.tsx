@@ -225,11 +225,10 @@ function Header({
   );
 }
 
-// Rounded-rect progress ring drawn around the active day cell (44×52, rx=12).
-// Uses an explicit <path> so strokeDasharray traces the outline exactly,
-// starting from the top-center and going clockwise.
-function DayRing({ progress }: { progress: number }) {
-  const W = 44, H = 52, RX = 12, SW = 2.5;
+// Rounded-rect progress ring. Default size matches the WeekStrip cell (44×52, rx=12).
+// Pass W/H/RX to draw around any rounded rectangle (e.g. full-width 3-day column header).
+function DayRing({ progress, W = 44, H = 52, RX = 12 }: { progress: number; W?: number; H?: number; RX?: number }) {
+  const SW = 2.5;
   const pad = 3; // room for the stroke without being clipped
   const p = pad; // alias for path math
 
@@ -422,6 +421,8 @@ function Checkbox({ checked, onToggle }: { checked: boolean; onToggle: () => voi
   );
 }
 
+type ForceSignal = { v: number; allDone: boolean };
+
 function TaskCard({
   id,
   title,
@@ -430,6 +431,7 @@ function TaskCard({
   initialDoneMap,
   initialChecked = false,
   onProgressChange,
+  forceSignal,
 }: {
   id: string;
   title: string;
@@ -438,6 +440,7 @@ function TaskCard({
   initialDoneMap?: Record<number, boolean>;
   initialChecked?: boolean;
   onProgressChange?: (id: string, done: number, total: number) => void;
+  forceSignal?: ForceSignal;
 }) {
   const [expanded,      setExpanded]      = useState(false);
   const [doneMap,       setDoneMap]       = useState<Record<number, boolean>>(() => initialDoneMap ?? {});
@@ -446,6 +449,21 @@ function TaskCard({
   const total     = tasks.length;
   const doneCount = Object.values(doneMap).filter(Boolean).length;
   const allDone   = total > 0 && doneCount === total;
+
+  // Apply external all-done / all-undone signal from 3-day view (version-gated to avoid loops)
+  const prevForceV = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!forceSignal || forceSignal.v === prevForceV.current) return;
+    prevForceV.current = forceSignal.v;
+    if (forceSignal.allDone) {
+      if (total === 0) { setSimpleChecked(true); }
+      else { const all: Record<number, boolean> = {}; tasks.forEach((_, i) => { all[i] = true; }); setDoneMap(all); }
+    } else {
+      setSimpleChecked(false);
+      setDoneMap({});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceSignal?.v]);
 
   // Report progress to parent whenever completion state changes
   useEffect(() => {
@@ -697,6 +715,7 @@ function TimedCard({
   tasks = [],
   initialDoneMap,
   onProgressChange,
+  forceSignal,
 }: {
   id: string;
   title: string;
@@ -705,6 +724,7 @@ function TimedCard({
   tasks?: SubTask[];
   initialDoneMap?: Record<number, boolean>;
   onProgressChange?: (id: string, done: number, total: number) => void;
+  forceSignal?: ForceSignal;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [doneMap,  setDoneMap]  = useState<Record<number, boolean>>(() => initialDoneMap ?? {});
@@ -712,6 +732,21 @@ function TimedCard({
   const total     = tasks.length;
   const doneCount = Object.values(doneMap).filter(Boolean).length;
   const allDone   = total > 0 && doneCount === total;
+
+  // Apply external all-done / all-undone signal from 3-day view (version-gated to avoid loops)
+  const prevForceV = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!forceSignal || forceSignal.v === prevForceV.current) return;
+    prevForceV.current = forceSignal.v;
+    if (forceSignal.allDone) {
+      const all: Record<number, boolean> = {};
+      tasks.forEach((_, i) => { all[i] = true; });
+      setDoneMap(all);
+    } else {
+      setDoneMap({});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceSignal?.v]);
 
   // Report progress to parent whenever completion state changes
   useEffect(() => {
@@ -1383,11 +1418,13 @@ function DayContent({
   isVisible,
   progressMap,
   onProgressChange,
+  forceSignals = {},
 }: {
   dayId: number;
   isVisible: boolean;
   progressMap: Record<string, { done: number; total: number }>;
   onProgressChange: (id: string, done: number, total: number) => void;
+  forceSignals?: Record<string, ForceSignal>;
 }) {
   const anytimeRef = useRef<HTMLDivElement>(null);
   const plannedRef = useRef<HTMLDivElement>(null);
@@ -1433,6 +1470,7 @@ function DayContent({
               tasks={c.tasks} initialDoneMap={c.initialDoneMap}
               initialChecked={c.initialChecked}
               onProgressChange={onProgressChange}
+              forceSignal={forceSignals[c.id]}
             />
           ))}
         </div>
@@ -1463,6 +1501,7 @@ function DayContent({
                 timeRange={c.timeRange} avatarColor={c.avatarColor}
                 tasks={c.tasks} initialDoneMap={c.initialDoneMap}
                 onProgressChange={onProgressChange}
+                forceSignal={forceSignals[c.id]}
               />
             )
           )}
@@ -1489,8 +1528,7 @@ function CompactTaskCard({
 }) {
   const progress  = total > 0 ? done / total : done;
   const isChecked = total > 0 && done === total;
-  const trackH    = 36;
-  const fillH     = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
+  const fillPct   = `${Math.round(Math.min(Math.max(progress, 0), 1) * 100)}%`;
 
   return (
     <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 8, overflow: "hidden" }}>
@@ -1498,11 +1536,11 @@ function CompactTaskCard({
         className="flex items-center"
         style={{ minHeight: 52, position: "relative", paddingLeft: 20, paddingRight: 12, paddingTop: 8, paddingBottom: 8 }}
       >
-        {/* Progress bar */}
+        {/* Progress bar — spans from top padding to bottom padding */}
         <div
           style={{
-            position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
-            width: 4, height: trackH, borderRadius: 2,
+            position: "absolute", left: 8, top: 8, bottom: 8,
+            width: 4, borderRadius: 2,
             background: `color-mix(in srgb, ${accentColor} 25%, transparent)`,
             overflow: "hidden",
           }}
@@ -1510,7 +1548,7 @@ function CompactTaskCard({
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              height: `${fillH}px`, borderRadius: 2, background: accentColor,
+              height: fillPct, borderRadius: 2, background: accentColor,
               transition: `height ${MS.dProgress} ${MS.eOut}`,
             }}
           />
@@ -1558,8 +1596,7 @@ function CompactTimedCard({
 }) {
   const progress  = total > 0 ? done / total : 0;
   const isChecked = total > 0 && done === total;
-  const trackH    = 36;
-  const fillH     = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
+  const fillPct   = `${Math.round(Math.min(Math.max(progress, 0), 1) * 100)}%`;
 
   return (
     <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 8, overflow: "hidden" }}>
@@ -1567,11 +1604,11 @@ function CompactTimedCard({
         className="flex items-center"
         style={{ minHeight: 60, position: "relative", paddingLeft: 20, paddingRight: 12, paddingTop: 8, paddingBottom: 8 }}
       >
-        {/* Linear progress bar */}
+        {/* Linear progress bar — spans from top padding to bottom padding */}
         <div
           style={{
-            position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
-            width: 4, height: trackH, borderRadius: 2,
+            position: "absolute", left: 8, top: 8, bottom: 8,
+            width: 4, borderRadius: 2,
             background: `color-mix(in srgb, ${avatarColor} 25%, transparent)`,
             overflow: "hidden",
           }}
@@ -1579,7 +1616,7 @@ function CompactTimedCard({
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              height: `${fillH}px`, borderRadius: 2, background: avatarColor,
+              height: fillPct, borderRadius: 2, background: avatarColor,
               transition: `height ${MS.dProgress} ${MS.eOut}`,
             }}
           />
@@ -1619,17 +1656,32 @@ function DayColumn({
   currentDay,
   cardProgressMap,
   onProgressChange,
+  onForceSignal,
   showDivider,
 }: {
   dayId: number;
   currentDay: number;
   cardProgressMap: Record<string, { done: number; total: number }>;
   onProgressChange: (id: string, done: number, total: number) => void;
+  onForceSignal: (id: string, allDone: boolean) => void;
   showDivider: boolean;
 }) {
   const day = DAY_CONTENT[dayId];
   const dayInfo = WEEK_DAYS.find((d) => d.id === dayId)!;
   const isToday = dayId === currentDay;
+
+  // Measure the header card's actual pixel width so DayRing can trace it
+  const headerCardRef = useRef<HTMLDivElement>(null);
+  const [cardWidth, setCardWidth] = useState(80);
+  useEffect(() => {
+    const el = headerCardRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      setCardWidth(entries[0].contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const anytime = day?.anytime ?? [];
   const planned = day?.planned ?? []; // ALL entries including GapEntry
@@ -1644,12 +1696,15 @@ function DayColumn({
   ).length;
   const hasIncomplete = anytime.length > 0 && completedCount < anytime.length;
 
-  // Toggle a card: if all done → uncheck all; if not → check all
+  // Toggle a card: if all done → uncheck all; if not → check all.
+  // Also fires onForceSignal so the Day view's TaskCard/TimedCard syncs state.
   const makeToggle = (id: string, defaultTotal: number) => () => {
     const e = cardProgressMap[id];
     const total = e?.total ?? defaultTotal;
     const done  = e?.done  ?? 0;
-    onProgressChange(id, done === total ? 0 : total, total);
+    const willBeAllDone = done !== total;
+    onProgressChange(id, willBeAllDone ? total : 0, total);
+    onForceSignal(id, willBeAllDone);
   };
 
   // Ring: sum all tracked cards
@@ -1670,6 +1725,7 @@ function DayColumn({
       {/* Day header — full column width card */}
       <div style={{ padding: "8px 5px 4px" }}>
         <div
+          ref={headerCardRef}
           style={{
             position: "relative",
             borderRadius: 12,
@@ -1677,28 +1733,18 @@ function DayColumn({
             height: 62,
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center",
-            overflow: "hidden",
+            // overflow: visible so ring stroke can bleed 3 px outside the card
           }}
         >
-          {/* Progress ring — centered around the text block */}
-          <div style={{ position: "relative", width: 44, height: 52, flexShrink: 0 }}>
-            <DayRing progress={ringProgress} />
-          </div>
-          {/* Text overlay centered in the ring */}
-          <div
-            style={{
-              position: "absolute", inset: 0,
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <span className="font-semibold" style={{ fontSize: 13, color: isToday ? BLUE : "#000", lineHeight: "1.15" }}>
-              {dayInfo.fullLabel}
-            </span>
-            <span className="font-bold" style={{ fontSize: 15, color: isToday ? BLUE : "#3a3a3a", marginTop: 1 }}>
-              {dayInfo.num}
-            </span>
-          </div>
+          {/* Ring traces the full card border */}
+          <DayRing progress={ringProgress} W={cardWidth} H={62} RX={12} />
+          {/* Day label + number */}
+          <span className="font-semibold" style={{ fontSize: 13, color: isToday ? BLUE : "#000", lineHeight: "1.15" }}>
+            {dayInfo.fullLabel}
+          </span>
+          <span className="font-bold" style={{ fontSize: 15, color: isToday ? BLUE : "#3a3a3a", marginTop: 1 }}>
+            {dayInfo.num}
+          </span>
         </div>
       </div>
 
@@ -1794,12 +1840,14 @@ function ThreeDayView({
   currentDay,
   progressMaps,
   progressHandlers,
+  onForceSignal,
 }: {
   start: number; // page-aligned: 1, 4, or 7
   onStartChange: (s: number) => void;
   currentDay: number;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
   progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
+  onForceSignal: (dayId: number, cardId: string, allDone: boolean) => void;
 }) {
   // Tracks what's currently rendered vs. what's animating out
   const [visibleStart, setVisibleStart] = useState(start);
@@ -1872,6 +1920,7 @@ function ThreeDayView({
               key={dayId} dayId={dayId} currentDay={currentDay}
               cardProgressMap={progressMaps[dayId] ?? {}}
               onProgressChange={progressHandlers[dayId]}
+              onForceSignal={(cardId, allDone) => onForceSignal(dayId, cardId, allDone)}
               showDivider={i < arr.length - 1}
             />
           ))}
@@ -1893,6 +1942,7 @@ function ThreeDayView({
             key={dayId} dayId={dayId} currentDay={currentDay}
             cardProgressMap={progressMaps[dayId] ?? {}}
             onProgressChange={progressHandlers[dayId]}
+            onForceSignal={(cardId, allDone) => onForceSignal(dayId, cardId, allDone)}
             showDivider={i < arr.length - 1}
           />
         ))}
@@ -2102,6 +2152,26 @@ function DashboardScreen({
     Record<number, Record<string, { done: number; total: number }>>
   >({});
 
+  // Cross-view sync signals: toggling in 3-day view forces Day view cards to match.
+  // Version-gated so TaskCard/TimedCard only react to genuine new signals.
+  const [forceSignals, setForceSignals] = useState<
+    Record<number, Record<string, ForceSignal>>
+  >({});
+  const forceVersions = useRef<Record<number, Record<string, number>>>({});
+
+  const handleForceSignal = useCallback((dayId: number, cardId: string, allDone: boolean) => {
+    setForceSignals((prev) => {
+      const daySignals = prev[dayId] ?? {};
+      const dayVersions = (forceVersions.current[dayId] = forceVersions.current[dayId] ?? {});
+      const nextV = (dayVersions[cardId] ?? 0) + 1;
+      dayVersions[cardId] = nextV;
+      return {
+        ...prev,
+        [dayId]: { ...daySignals, [cardId]: { v: nextV, allDone } },
+      };
+    });
+  }, []);
+
   // Stable per-day handlers created once; each captures its own dayId.
   const progressHandlers = useMemo(() => {
     const out: Record<number, (id: string, done: number, total: number) => void> = {};
@@ -2240,6 +2310,7 @@ function DashboardScreen({
             isVisible={dayId === activeDay}
             progressMap={progressMaps[dayId] ?? {}}
             onProgressChange={progressHandlers[dayId]}
+            forceSignals={forceSignals[dayId] ?? {}}
           />
         ))}
 
@@ -2251,6 +2322,7 @@ function DashboardScreen({
             currentDay={CURRENT_DAY}
             progressMaps={progressMaps}
             progressHandlers={progressHandlers}
+            onForceSignal={handleForceSignal}
           />
         )}
 
