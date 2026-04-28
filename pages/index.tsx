@@ -147,13 +147,13 @@ function DayRing({ progress }: { progress: number }) {
 
 function WeekStrip({ progress = 0 }: { progress?: number }) {
   const days = [
-    { label: "Sun", num: "1", active: false },
-    { label: "Mon", num: "2", active: true  },
-    { label: "Tue", num: "3", active: false },
-    { label: "Wed", num: "4", active: false },
-    { label: "Thu", num: "5", active: false },
-    { label: "Fri", num: "6", active: false },
-    { label: "Sat", num: "7", active: false },
+    { label: "S", num: "1", active: false },
+    { label: "M", num: "2", active: true  },
+    { label: "T", num: "3", active: false },
+    { label: "W", num: "4", active: false },
+    { label: "T", num: "5", active: false },
+    { label: "F", num: "6", active: false },
+    { label: "S", num: "7", active: false },
   ];
 
   return (
