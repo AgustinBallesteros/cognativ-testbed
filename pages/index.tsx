@@ -2061,7 +2061,7 @@ function MonthGrid({
   return (
     <div style={{ padding: "0 8px" }}>
       {/* Day-of-week labels */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8, marginBottom: 4 }}>
         {DOW_LABELS.map((lbl, i) => (
           <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#c0c0c0", paddingBottom: 2 }}>
             {lbl}
@@ -2070,12 +2070,12 @@ function MonthGrid({
       </div>
 
       {/* Weeks */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {weeks.map((week, wi) => (
-          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 48px))", gap: 8, justifyContent: "space-between" }}>
             {week.map((date, di) => {
               if (date === null) {
-                return <div key={di} style={{ minHeight: 58 }} />;
+                return <div key={di} style={{ height: 72 }} />;
               }
 
               const isToday  = offset === 0 && date === MONTH_TODAY_DATE;
@@ -2095,10 +2095,10 @@ function MonthGrid({
                     background: "#fff",
                     borderRadius: 10,
                     boxShadow: CARD_SHADOW,
-                    minHeight: 58,
+                    height: 72,
                     display: "flex", flexDirection: "column",
                     alignItems: "center",
-                    padding: "5px 3px 6px",
+                    padding: "7px 3px 8px",
                     cursor: hasTasks ? "pointer" : "default",
                     userSelect: "none",
                   }}
@@ -2122,11 +2122,8 @@ function MonthGrid({
                   {/* Date number + progress ring at bottom */}
                   <div style={{ position: "relative", width: 26, height: 26, marginTop: "auto" }}>
                     <MonthCellRing progress={ringProg} size={26} />
-                    {isToday && (
-                      <div style={{ position: "absolute", top: 2, left: 2, right: 2, bottom: 2, borderRadius: "50%", background: BLUE }} />
-                    )}
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: 12, lineHeight: 1, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : "#1a1a1a" }}>
+                      <span style={{ fontSize: 12, lineHeight: 1, fontWeight: isToday ? 700 : 500, color: isToday ? BLUE : "#1a1a1a" }}>
                         {date}
                       </span>
                     </div>
