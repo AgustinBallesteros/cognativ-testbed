@@ -2093,16 +2093,15 @@ function MonthGrid({
               const hasTasks = dayId !== null;
               const ringProg = getRingProgress(date);
 
-              // Build ordered element list: dots + optional "+N" overflow, then chunk into rows of 3
+              // Max 4 elements: show up to 4 dots, or 3 dots + "+N" if there are more than 4
               const allDots = getDotColors(date);
-              const MAX_DOT_SHOW = 6;
               type DotEl = { kind: "dot"; color: string } | { kind: "more"; n: number };
               const dotElems: DotEl[] =
-                allDots.length <= MAX_DOT_SHOW
+                allDots.length <= 4
                   ? allDots.map((c) => ({ kind: "dot", color: c }))
                   : [
-                      ...allDots.slice(0, MAX_DOT_SHOW - 1).map((c): DotEl => ({ kind: "dot", color: c })),
-                      { kind: "more", n: allDots.length - (MAX_DOT_SHOW - 1) },
+                      ...allDots.slice(0, 3).map((c): DotEl => ({ kind: "dot", color: c })),
+                      { kind: "more", n: allDots.length - 3 },
                     ];
               const dotRows: DotEl[][] = [];
               for (let i = 0; i < dotElems.length; i += 3) dotRows.push(dotElems.slice(i, i + 3));
