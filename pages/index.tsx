@@ -193,9 +193,9 @@ function WeekStrip({
         const isActive  = d.id === activeDay;
         const isToday   = d.id === currentDay;
         const prog      = dayProgressMap[d.id] ?? 0;
-        // Blue text if this is the active day OR today; dimmed otherwise
-        const textColor = isActive || isToday ? BLUE : "#000";
-        const numColor  = isActive || isToday ? BLUE : "#585858";
+        // Blue text only for today; the active (viewed) day just gets the grey background
+        const textColor = isToday ? BLUE : "#000";
+        const numColor  = isToday ? BLUE : "#585858";
         return (
           <div
             key={d.id}
