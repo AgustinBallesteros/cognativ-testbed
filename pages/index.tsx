@@ -1290,6 +1290,17 @@ function DashboardScreen({
   // Map passed to WeekStrip: live for active day, frozen snapshot for others
   const fullProgressMap: Record<number, number> = { ...savedDayProgress, [activeDay]: liveProgress };
 
+  // "Due Today" counts cards (not subtasks) that aren't fully done yet.
+  // Cards not yet in progressMap haven't been touched → still incomplete.
+  const dayData = DAY_CONTENT[activeDay];
+  const totalCards =
+    (dayData?.anytime.length ?? 0) +
+    (dayData?.planned.filter((c) => c.kind !== "gap").length ?? 0);
+  const completedCards = Object.values(progressMap).filter(
+    ({ done, total }) => total > 0 && done === total
+  ).length;
+  const dueToday = totalCards - completedCards;
+
   const switchDay = useCallback((day: number) => {
     if (day === activeDay) return;
     setSavedDayProgress((prev) => ({ ...prev, [activeDay]: liveProgress }));
@@ -1386,7 +1397,7 @@ function DashboardScreen({
                 <SectionHeader
                   id="anytime-header"
                   title="Anytime"
-                  badge={<DueTodayBadge count={totalAll - totalDone} />}
+                  badge={<DueTodayBadge count={dueToday} />}
                   expanded={anytimeExpanded}
                   onToggle={() => setAnytimeExpanded((v) => !v)}
                 />
