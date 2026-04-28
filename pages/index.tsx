@@ -103,8 +103,17 @@ const CALENDAR_VIEWS: { id: CalendarView; label: string; icon: React.ReactNode }
   },
 ];
 
-function Header() {
-  const [view,     setView]     = useState<CalendarView>("day");
+function Header({
+  view,
+  onViewChange,
+  showTodayBtn = false,
+  onTodayJump,
+}: {
+  view: CalendarView;
+  onViewChange: (v: CalendarView) => void;
+  showTodayBtn?: boolean;
+  onTodayJump?: () => void;
+}) {
   const [dropOpen, setDropOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -132,62 +141,81 @@ function Header() {
         <div className="font-normal text-black/50" style={{ fontSize: 13, marginTop: 1 }}>2026</div>
       </div>
 
-      {/* View picker */}
-      <div ref={containerRef} style={{ position: "relative", marginTop: 4 }}>
-        {/* Trigger button */}
-        <div
-          onClick={() => setDropOpen((v) => !v)}
-          className="flex items-center gap-1.5 px-3"
-          style={{
-            background: "#F2F2F2", height: 34, borderRadius: 10,
-            cursor: "pointer", userSelect: "none",
-            color: "#242424",
-          }}
-        >
-          {active.icon}
-          <span className="font-medium text-black" style={{ fontSize: 13 }}>{active.label}</span>
-        </div>
+      {/* Right side: Today jump + view picker */}
+      <div className="flex items-center gap-2" style={{ marginTop: 4 }}>
+        {/* Jump-to-today button — only in 3-day view when today is out of window */}
+        {showTodayBtn && (
+          <div
+            onClick={onTodayJump}
+            style={{
+              height: 34, borderRadius: 10, paddingLeft: 12, paddingRight: 12,
+              background: BLUE, color: "#fff",
+              display: "flex", alignItems: "center",
+              cursor: "pointer", userSelect: "none",
+              fontSize: 13, fontWeight: 500,
+            }}
+          >
+            Today
+          </div>
+        )}
 
-        {/* Dropdown */}
-        <div
-          style={{
-            position: "absolute", top: "calc(100% + 6px)", right: 0,
-            background: "#fff",
-            borderRadius: 14,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.07)",
-            padding: "6px",
-            display: "flex", flexDirection: "column", gap: 2,
-            minWidth: 150,
-            zIndex: 50,
-            pointerEvents: dropOpen ? "auto" : "none",
-            opacity: dropOpen ? 1 : 0,
-            transform: dropOpen ? "translateY(0) scale(1)" : "translateY(-6px) scale(0.97)",
-            transformOrigin: "top right",
-            transition: `opacity ${MS.dElement} ${MS.eOut}, transform ${MS.dElement} ${MS.eOut}`,
-          }}
-        >
-          {CALENDAR_VIEWS.map((v) => {
-            const isSelected = v.id === view;
-            return (
-              <div
-                key={v.id}
-                onClick={() => { setView(v.id); setDropOpen(false); }}
-                className="flex items-center gap-2.5"
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 9,
-                  background: isSelected ? "#F2F2F2" : "transparent",
-                  cursor: "pointer",
-                  userSelect: "none",
-                  color: "#242424",
-                  transition: `background ${MS.dFast} ${MS.eOut}`,
-                }}
-              >
-                {v.icon}
-                <span className="font-medium" style={{ fontSize: 14 }}>{v.label}</span>
-              </div>
-            );
-          })}
+        {/* View picker */}
+        <div ref={containerRef} style={{ position: "relative" }}>
+          {/* Trigger button */}
+          <div
+            onClick={() => setDropOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3"
+            style={{
+              background: "#F2F2F2", height: 34, borderRadius: 10,
+              cursor: "pointer", userSelect: "none",
+              color: "#242424",
+            }}
+          >
+            {active.icon}
+            <span className="font-medium text-black" style={{ fontSize: 13 }}>{active.label}</span>
+          </div>
+
+          {/* Dropdown */}
+          <div
+            style={{
+              position: "absolute", top: "calc(100% + 6px)", right: 0,
+              background: "#fff",
+              borderRadius: 14,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.07)",
+              padding: "6px",
+              display: "flex", flexDirection: "column", gap: 2,
+              minWidth: 150,
+              zIndex: 50,
+              pointerEvents: dropOpen ? "auto" : "none",
+              opacity: dropOpen ? 1 : 0,
+              transform: dropOpen ? "translateY(0) scale(1)" : "translateY(-6px) scale(0.97)",
+              transformOrigin: "top right",
+              transition: `opacity ${MS.dElement} ${MS.eOut}, transform ${MS.dElement} ${MS.eOut}`,
+            }}
+          >
+            {CALENDAR_VIEWS.map((v) => {
+              const isSelected = v.id === view;
+              return (
+                <div
+                  key={v.id}
+                  onClick={() => { onViewChange(v.id); setDropOpen(false); }}
+                  className="flex items-center gap-2.5"
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 9,
+                    background: isSelected ? "#F2F2F2" : "transparent",
+                    cursor: "pointer",
+                    userSelect: "none",
+                    color: "#242424",
+                    transition: `background ${MS.dFast} ${MS.eOut}`,
+                  }}
+                >
+                  {v.icon}
+                  <span className="font-medium" style={{ fontSize: 14 }}>{v.label}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -1441,6 +1469,430 @@ function DayContent({
   );
 }
 
+// ─── Compact cards (3-day view) ───────────────────────────────────────────────
+
+function CompactTaskCard({
+  title,
+  accentColor,
+  done,
+  total,
+}: {
+  title: string;
+  accentColor: string;
+  done: number;
+  total: number;
+}) {
+  const progress = total > 0 ? done / total : done; // handles simple checked (done=1,total=1)
+  const isChecked = total > 0 && done === total;
+  const trackH = 24;
+  const fillH = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
+
+  return (
+    <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 8, overflow: "hidden" }}>
+      <div
+        className="flex items-center"
+        style={{ minHeight: 38, position: "relative", paddingLeft: 17, paddingRight: 8, paddingTop: 5, paddingBottom: 5 }}
+      >
+        {/* Progress bar */}
+        <div
+          style={{
+            position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)",
+            width: 3, height: trackH, borderRadius: 2,
+            background: `color-mix(in srgb, ${accentColor} 25%, transparent)`,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              height: `${fillH}px`, borderRadius: 2, background: accentColor,
+              transition: `height ${MS.dProgress} ${MS.eOut}`,
+            }}
+          />
+        </div>
+        <span className="font-medium text-black flex-1" style={{ fontSize: 10.5, lineHeight: "1.35" }}>
+          {title}
+        </span>
+        <div
+          style={{
+            width: 14, height: 14, borderRadius: 4, flexShrink: 0, marginLeft: 4,
+            border: isChecked ? "none" : "1.5px solid #ccc",
+            background: isChecked ? BLUE : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {isChecked && (
+            <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+              <path d="M1 3l2 2L7 1" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactTimedCard({
+  title,
+  timeRange,
+  avatarColor,
+  done,
+  total,
+}: {
+  title: string;
+  timeRange: string;
+  avatarColor: string;
+  done: number;
+  total: number;
+}) {
+  const progress = total > 0 ? done / total : 0;
+  const circ = 2 * Math.PI * 8;
+  const offset = circ * (1 - progress);
+
+  return (
+    <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 8, overflow: "hidden" }}>
+      <div className="flex items-center gap-1.5" style={{ minHeight: 44, padding: "6px 8px" }}>
+        {/* Mini circular progress */}
+        <svg width="22" height="22" viewBox="0 0 22 22" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+          <circle cx="11" cy="11" r="8" fill="none" stroke={avatarColor} strokeOpacity={0.25} strokeWidth={2.5} />
+          <circle cx="11" cy="11" r="5" fill={avatarColor} opacity={0.4} />
+          <circle
+            cx="11" cy="11" r="8" fill="none" stroke={avatarColor} strokeWidth={2.5}
+            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+            style={{ transition: `stroke-dashoffset ${MS.dProgress} ${MS.eOut}` }}
+          />
+        </svg>
+        {/* Text */}
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-black truncate" style={{ fontSize: 10.5, lineHeight: "1.3" }}>{title}</div>
+          <div style={{ fontSize: 9.5, color: "#999", marginTop: 1 }}>{timeRange}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Day column (used inside 3-day view) ──────────────────────────────────────
+
+function DayColumn({
+  dayId,
+  currentDay,
+  cardProgressMap,
+  showDivider,
+}: {
+  dayId: number;
+  currentDay: number;
+  cardProgressMap: Record<string, { done: number; total: number }>;
+  showDivider: boolean;
+}) {
+  const day = DAY_CONTENT[dayId];
+  const dayInfo = WEEK_DAYS.find((d) => d.id === dayId)!;
+  const isToday = dayId === currentDay;
+
+  const anytime = day?.anytime ?? [];
+  const planned = (day?.planned ?? []).filter((p): p is TimedEntry => p.kind === "timed");
+
+  const visibleAnytime = anytime.slice(0, 3);
+  const extraAnytime = Math.max(0, anytime.length - 3);
+
+  // Ring: sum all tracked cards for this day
+  const { rDone, rTotal } = Object.values(cardProgressMap).reduce(
+    (acc, e) => ({ rDone: acc.rDone + e.done, rTotal: acc.rTotal + e.total }),
+    { rDone: 0, rTotal: 0 }
+  );
+  const ringProgress = rTotal > 0 ? rDone / rTotal : 0;
+
+  return (
+    <div
+      style={{
+        flex: 1, minWidth: 0,
+        borderRight: showDivider ? "1px solid rgba(0,0,0,0.07)" : "none",
+        display: "flex", flexDirection: "column",
+      }}
+    >
+      {/* Day header */}
+      <div className="flex flex-col items-center" style={{ paddingTop: 8, paddingBottom: 8 }}>
+        <div style={{ position: "relative", width: 44, height: 52 }}>
+          <DayRing progress={ringProgress} />
+          <div className="flex flex-col items-center justify-center" style={{ width: "100%", height: "100%" }}>
+            <span className="font-medium" style={{ fontSize: 12, color: isToday ? BLUE : "#000", lineHeight: "1.2" }}>
+              {dayInfo.label}
+            </span>
+            <span className="font-medium" style={{ fontSize: 13, color: isToday ? BLUE : "#585858", marginTop: 2 }}>
+              {dayInfo.num}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, padding: "0 6px", paddingBottom: 16 }}>
+        {/* Anytime */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: "#bbb", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 5, paddingLeft: 2 }}>
+            Anytime
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {visibleAnytime.map((c) => {
+              const e = cardProgressMap[c.id];
+              const defaultTotal = c.tasks && c.tasks.length > 0 ? c.tasks.length : 1;
+              return (
+                <CompactTaskCard
+                  key={c.id}
+                  title={c.title}
+                  accentColor={c.accentColor}
+                  done={e?.done ?? 0}
+                  total={e?.total ?? defaultTotal}
+                />
+              );
+            })}
+            {extraAnytime > 0 && (
+              <div style={{ fontSize: 10, color: BLUE, fontWeight: 500, paddingLeft: 2, paddingTop: 2 }}>
+                View more (+{extraAnytime})
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Scheduled */}
+        {planned.length > 0 && (
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#bbb", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 5, paddingLeft: 2 }}>
+              Scheduled
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {planned.map((c) => {
+                const e = cardProgressMap[c.id];
+                const defaultTotal = c.tasks && c.tasks.length > 0 ? c.tasks.length : 1;
+                return (
+                  <CompactTimedCard
+                    key={c.id}
+                    title={c.title}
+                    timeRange={c.timeRange}
+                    avatarColor={c.avatarColor}
+                    done={e?.done ?? 0}
+                    total={e?.total ?? defaultTotal}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── 3-Day view ───────────────────────────────────────────────────────────────
+
+function ThreeDayView({
+  start,
+  onStartChange,
+  currentDay,
+  progressMaps,
+}: {
+  start: number; // 1–5, first day id of the 3-day window
+  onStartChange: (s: number) => void;
+  currentDay: number;
+  progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+}) {
+  const swipe = useRef({ startX: 0, startY: 0, active: false });
+  const days = [start, start + 1, start + 2];
+
+  return (
+    <div
+      style={{ display: "flex", paddingBottom: 100 }}
+      onPointerDown={(e) => { swipe.current = { startX: e.clientX, startY: e.clientY, active: true }; }}
+      onPointerUp={(e) => {
+        if (!swipe.current.active) return;
+        swipe.current.active = false;
+        const dx = e.clientX - swipe.current.startX;
+        const dy = e.clientY - swipe.current.startY;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+          if (dx < 0 && start < 5) onStartChange(Math.min(5, start + 1));
+          else if (dx > 0 && start > 1) onStartChange(Math.max(1, start - 1));
+        }
+      }}
+      onPointerCancel={() => { swipe.current.active = false; }}
+    >
+      {days.map((dayId, i) => (
+        <DayColumn
+          key={dayId}
+          dayId={dayId}
+          currentDay={currentDay}
+          cardProgressMap={progressMaps[dayId] ?? {}}
+          showDivider={i < 2}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Month view ───────────────────────────────────────────────────────────────
+
+// April 2026: 30 days, April 1 = Wednesday (dow 3, 0 = Sunday)
+const APRIL_START_DOW = 3;
+const APRIL_DAYS = 30;
+// In our prototype: CURRENT_DAY(2) = Monday = April 2
+const MONTH_TODAY_DATE = 2;
+
+function MonthCellRing({ progress, size = 28 }: { progress: number; size?: number }) {
+  const sw = 2;
+  const r = (size - sw * 2) / 2;
+  const circ = 2 * Math.PI * r;
+  const cx = size / 2, cy = size / 2;
+  const clamped = Math.min(Math.max(progress, 0), 1);
+  const offset = circ * (1 - clamped);
+
+  return (
+    <svg
+      width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+      style={{
+        position: "absolute", top: 0, left: "50%",
+        transform: "translateX(-50%) rotate(-90deg)",
+        pointerEvents: "none",
+      }}
+    >
+      <circle
+        cx={cx} cy={cy} r={r} fill="none" stroke={BLUE} strokeWidth={sw}
+        strokeOpacity={progress > 0 ? 0.18 : 0}
+        style={{ transition: `stroke-opacity ${MS.dProgress} ${MS.eOut}` }}
+      />
+      <circle
+        cx={cx} cy={cy} r={r} fill="none" stroke={BLUE} strokeWidth={sw}
+        strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+        style={{ transition: `stroke-dashoffset ${MS.dProgress} ${MS.eOut}` }}
+      />
+    </svg>
+  );
+}
+
+function MonthView({
+  progressMaps,
+  onDayTap,
+}: {
+  progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+  onDayTap: (date: number) => void;
+}) {
+  // Build flat cell array
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < APRIL_START_DOW; i++) cells.push(null);
+  for (let d = 1; d <= APRIL_DAYS; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const weeks: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  const DOW_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+
+  // Collect dot colors for a given date (dates 1–7 map directly to our day IDs)
+  const getDotColors = (date: number): string[] => {
+    if (date < 1 || date > 7) return [];
+    const day = DAY_CONTENT[date];
+    if (!day) return [];
+    const colors: string[] = [];
+    for (const t of day.anytime) colors.push(t.accentColor);
+    for (const t of day.planned) if (t.kind === "timed") colors.push(t.avatarColor);
+    return colors;
+  };
+
+  const getRingProgress = (date: number): number => {
+    if (date < 1 || date > 7) return 0;
+    const map = progressMaps[date] ?? {};
+    const vals = Object.values(map);
+    if (vals.length === 0) return 0;
+    const { done, total } = vals.reduce(
+      (acc, e) => ({ done: acc.done + e.done, total: acc.total + e.total }),
+      { done: 0, total: 0 }
+    );
+    return total > 0 ? done / total : 0;
+  };
+
+  return (
+    <div style={{ padding: "8px 8px 100px" }}>
+      {/* Day-of-week labels */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 2 }}>
+        {DOW_LABELS.map((lbl, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#bbb", paddingBottom: 6 }}>
+            {lbl}
+          </div>
+        ))}
+      </div>
+
+      {/* Weeks */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {weeks.map((week, wi) => (
+          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            {week.map((date, di) => {
+              if (date === null) {
+                return <div key={di} style={{ minHeight: 54 }} />;
+              }
+
+              const isToday = date === MONTH_TODAY_DATE;
+              const allDots = getDotColors(date);
+              const visibleDots = allDots.slice(0, 4);
+              const extraDots = Math.max(0, allDots.length - 4);
+              const ringProg = getRingProgress(date);
+
+              return (
+                <div
+                  key={di}
+                  onClick={() => onDayTap(date)}
+                  style={{
+                    minHeight: 54,
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    paddingTop: 5, paddingBottom: 5,
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    background: isToday ? "rgba(85,139,247,0.06)" : "transparent",
+                  }}
+                >
+                  {/* Date number + ring */}
+                  <div style={{ position: "relative", width: 28, height: 28, marginBottom: 4 }}>
+                    <MonthCellRing progress={ringProg} size={28} />
+                    {isToday && (
+                      <div style={{
+                        position: "absolute", top: "50%", left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: 22, height: 22, borderRadius: "50%", background: BLUE,
+                      }} />
+                    )}
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{
+                        fontSize: 12,
+                        fontWeight: isToday ? 700 : 500,
+                        color: isToday ? "#fff" : "#1a1a1a",
+                        lineHeight: 1,
+                      }}>
+                        {date}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Task dots */}
+                  {visibleDots.length > 0 && (
+                    <div style={{ display: "flex", gap: 2, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
+                      {visibleDots.map((color, i) => (
+                        <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                      ))}
+                      {extraDots > 0 && (
+                        <span style={{ fontSize: 8, color: "#bbb", lineHeight: 1 }}>+{extraDots}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
 
 function DashboardScreen({
@@ -1451,6 +1903,22 @@ function DashboardScreen({
   height?: number | string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Calendar view state (lifted from Header)
+  const [view, setView] = useState<CalendarView>("day");
+
+  // 3-day window: first day id in the window (1–5)
+  const [threeDayStart, setThreeDayStart] = useState<number>(1);
+
+  // Show "Today" button in 3-day view when CURRENT_DAY is outside the visible window
+  const showTodayBtn =
+    view === "3day" &&
+    (CURRENT_DAY < threeDayStart || CURRENT_DAY > threeDayStart + 2);
+
+  const switchView = useCallback((v: CalendarView) => {
+    setView(v);
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, []);
 
   // Active day — default Monday
   const [activeDay, setActiveDay] = useState<number>(2);
@@ -1532,7 +2000,7 @@ function DashboardScreen({
     <div id="dashboard-screen" style={{ width, height, position: "relative", fontFamily: "var(--font-inter)", overflow: "hidden" }}>
       <style>{`#scroll-content::-webkit-scrollbar { display: none; }`}</style>
 
-      {/* ── Fixed header (StatusBar + Header + WeekStrip) ── */}
+      {/* ── Fixed header ── */}
       <div
         id="fixed-header"
         style={{
@@ -1540,43 +2008,53 @@ function DashboardScreen({
           zIndex: 9, background: "#fff",
         }}
       >
-        <Header />
-        <WeekStrip
-          activeDay={activeDay}
-          currentDay={CURRENT_DAY}
-          dayProgressMap={fullProgressMap}
-          onDayChange={switchDay}
+        <Header
+          view={view}
+          onViewChange={switchView}
+          showTodayBtn={showTodayBtn}
+          onTodayJump={() => {
+            // Jump to the window that contains CURRENT_DAY
+            setThreeDayStart(Math.min(5, Math.max(1, CURRENT_DAY)));
+          }}
         />
+        {/* WeekStrip only shown in Day view */}
+        {view === "day" && (
+          <WeekStrip
+            activeDay={activeDay}
+            currentDay={CURRENT_DAY}
+            dayProgressMap={fullProgressMap}
+            onDayChange={switchDay}
+          />
+        )}
       </div>
 
-      {/* Scrollable content — starts below the fixed header */}
+      {/* Scrollable content */}
       <div
         id="scroll-content"
         ref={scrollRef}
         className="no-scrollbar"
-        onMouseDown={onDragStart}
-        onMouseMove={onDragMove}
-        onMouseUp={onDragEnd}
-        onMouseLeave={onDragEnd}
-        onTouchStart={onDragStart}
-        onTouchMove={onDragMove}
-        onTouchEnd={onDragEnd}
+        onMouseDown={view === "day" ? onDragStart : undefined}
+        onMouseMove={view === "day" ? onDragMove : undefined}
+        onMouseUp={view === "day" ? onDragEnd : undefined}
+        onMouseLeave={view === "day" ? onDragEnd : undefined}
+        onTouchStart={view === "day" ? onDragStart : undefined}
+        onTouchMove={view === "day" ? onDragMove : undefined}
+        onTouchEnd={view === "day" ? onDragEnd : undefined}
         style={{
           position: "absolute",
-          top: 135,
+          top: view === "day" ? 135 : 68,
           bottom: 83,
           left: 0,
           right: 0,
           overflowY: "auto",
           overflowX: "hidden",
-          cursor: "grab",
+          cursor: view === "day" ? "grab" : "default",
           msOverflowStyle: "none",
           scrollbarWidth: "none",
         } as React.CSSProperties}
       >
-        {/* Render all 7 days simultaneously; only the active one is visible.
-            This keeps card components mounted so checkbox state is never lost. */}
-        {Object.keys(DAY_CONTENT).map(Number).map((dayId) => (
+        {/* Day view: all 7 days mounted simultaneously, hidden with display:none */}
+        {view === "day" && Object.keys(DAY_CONTENT).map(Number).map((dayId) => (
           <DayContent
             key={dayId}
             dayId={dayId}
@@ -1585,6 +2063,26 @@ function DashboardScreen({
             onProgressChange={progressHandlers[dayId]}
           />
         ))}
+
+        {/* 3-Day view */}
+        {view === "3day" && (
+          <ThreeDayView
+            start={threeDayStart}
+            onStartChange={setThreeDayStart}
+            currentDay={CURRENT_DAY}
+            progressMaps={progressMaps}
+          />
+        )}
+
+        {/* Month view */}
+        {view === "month" && (
+          <MonthView
+            progressMaps={progressMaps}
+            onDayTap={(_date) => {
+              // TODO: show day popover
+            }}
+          />
+        )}
       </div>
 
       <FABButton />
