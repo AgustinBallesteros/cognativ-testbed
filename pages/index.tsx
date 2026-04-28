@@ -2130,9 +2130,7 @@ function MonthGrid({
                           el.kind === "dot" ? (
                             <div key={ei} style={{ width: 8, height: 8, borderRadius: "50%", background: el.color, flexShrink: 0 }} />
                           ) : (
-                            <div key={ei} style={{ width: 8, height: 8, borderRadius: 2, background: "#e8e8e8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                              <span style={{ fontSize: 5, color: "#999", fontWeight: 700, lineHeight: 1 }}>+{el.n}</span>
-                            </div>
+                            <span key={ei} style={{ fontSize: 8, color: "#aaa", fontWeight: 600, lineHeight: "8px" }}>+{el.n}</span>
                           )
                         )}
                       </div>
