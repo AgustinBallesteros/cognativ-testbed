@@ -2059,7 +2059,7 @@ function MonthGrid({
   };
 
   return (
-    <div style={{ padding: "0 10px" }}>
+    <div style={{ padding: "0 8px" }}>
       {/* Day-of-week labels */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 4 }}>
         {DOW_LABELS.map((lbl, i) => (
@@ -2269,18 +2269,6 @@ function SheetTaskCard({
         </div>
       </div>
 
-      {/* Thin bottom progress bar (only for multi-task cards) */}
-      {total > 1 && (
-        <div style={{ height: 3, background: `color-mix(in srgb, ${accentColor} 15%, transparent)` }}>
-          <div
-            style={{
-              height: "100%", width: `${Math.round(progress * 100)}%`,
-              background: accentColor,
-              transition: `width ${MS.dProgress} ${MS.eOut}`,
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -2326,13 +2314,13 @@ function DayBottomSheet({
         onClick={onClose}
       />
 
-      {/* Sheet */}
+      {/* Sheet — floats with 10 px gap on left, right and bottom */}
       <div
         style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
+          position: "absolute", bottom: 10, left: 10, right: 10,
           maxHeight: "70%",
           background: "#fff",
-          borderRadius: "18px 18px 0 0",
+          borderRadius: 18,
           zIndex: 41,
           display: "flex", flexDirection: "column",
           boxShadow: "0 -6px 32px rgba(0,0,0,0.14)",
