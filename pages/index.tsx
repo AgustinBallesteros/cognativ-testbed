@@ -298,14 +298,15 @@ function DayRing({ progress, W = 44, H = 52, RX = 12 }: { progress: number; W?: 
   );
 }
 
+// April 2026: Wed=1, Thu=2, Fri=3, Sat=4, Sun=5, Mon=6, Tue=7
 const WEEK_DAYS = [
-  { label: "S", fullLabel: "Sun", num: "1", id: 1 },
-  { label: "M", fullLabel: "Mon", num: "2", id: 2 },
-  { label: "T", fullLabel: "Tue", num: "3", id: 3 },
-  { label: "W", fullLabel: "Wed", num: "4", id: 4 },
-  { label: "T", fullLabel: "Thu", num: "5", id: 5 },
-  { label: "F", fullLabel: "Fri", num: "6", id: 6 },
-  { label: "S", fullLabel: "Sat", num: "7", id: 7 },
+  { label: "S", fullLabel: "Sun", num: "5", id: 1 },
+  { label: "M", fullLabel: "Mon", num: "6", id: 2 },
+  { label: "T", fullLabel: "Tue", num: "7", id: 3 },
+  { label: "W", fullLabel: "Wed", num: "1", id: 4 },
+  { label: "T", fullLabel: "Thu", num: "2", id: 5 },
+  { label: "F", fullLabel: "Fri", num: "3", id: 6 },
+  { label: "S", fullLabel: "Sat", num: "4", id: 7 },
 ];
 
 function WeekStrip({
