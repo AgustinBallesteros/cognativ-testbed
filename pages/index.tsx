@@ -1,5 +1,5 @@
 import { Inter } from "next/font/google";
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -1337,6 +1337,104 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
   },
 };
 
+// ─── Day Content ─────────────────────────────────────────────────────────────
+// Rendered for every day simultaneously (display:none when inactive) so card
+// state is never lost when switching days.
+
+function DayContent({
+  dayId,
+  isVisible,
+  progressMap,
+  onProgressChange,
+}: {
+  dayId: number;
+  isVisible: boolean;
+  progressMap: Record<string, { done: number; total: number }>;
+  onProgressChange: (id: string, done: number, total: number) => void;
+}) {
+  const anytimeRef = useRef<HTMLDivElement>(null);
+  const plannedRef = useRef<HTMLDivElement>(null);
+  const [anytimeExpanded, setAnytimeExpanded] = useState(true);
+  const [plannedExpanded, setPlannedExpanded] = useState(true);
+
+  const anytimeMaxH = anytimeExpanded
+    ? `${(anytimeRef.current?.scrollHeight ?? 600) + 400}px` : "0px";
+  const plannedMaxH = plannedExpanded
+    ? `${(plannedRef.current?.scrollHeight ?? 800) + 400}px` : "0px";
+
+  const day = DAY_CONTENT[dayId];
+
+  // Due Today: anytime cards not yet fully completed
+  const anytimeIds = new Set(day?.anytime.map((c) => c.id) ?? []);
+  const completedCards = Object.entries(progressMap).filter(
+    ([id, { done, total }]) => anytimeIds.has(id) && total > 0 && done === total
+  ).length;
+  const dueToday = anytimeIds.size - completedCards;
+
+  return (
+    <div style={{ display: isVisible ? "block" : "none", paddingBottom: 100 }}>
+      {/* ── Anytime Section ── */}
+      <SectionHeader
+        id={`anytime-header-${dayId}`}
+        title="Anytime"
+        badge={<DueTodayBadge count={dueToday} />}
+        expanded={anytimeExpanded}
+        onToggle={() => setAnytimeExpanded((v) => !v)}
+      />
+      <div
+        style={{
+          maxHeight: anytimeMaxH, overflow: "hidden",
+          transition: anytimeExpanded
+            ? `max-height ${MS.dExpand} ${MS.eOut}`
+            : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
+        }}
+      >
+        <div ref={anytimeRef} className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
+          {day?.anytime.map((c) => (
+            <TaskCard
+              key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
+              tasks={c.tasks} initialDoneMap={c.initialDoneMap}
+              initialChecked={c.initialChecked}
+              onProgressChange={onProgressChange}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Planned Section ── */}
+      <SectionHeader
+        id={`planned-header-${dayId}`}
+        title="Planned"
+        expanded={plannedExpanded}
+        onToggle={() => setPlannedExpanded((v) => !v)}
+      />
+      <div
+        style={{
+          maxHeight: plannedMaxH, overflow: "hidden",
+          transition: plannedExpanded
+            ? `max-height ${MS.dExpand} ${MS.eOut}`
+            : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
+        }}
+      >
+        <div ref={plannedRef} className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
+          {day?.planned.map((c) =>
+            c.kind === "gap" ? (
+              <GapBar key={c.id} id={c.id} label={c.label} />
+            ) : (
+              <TimedCard
+                key={c.id} id={c.id} title={c.title}
+                timeRange={c.timeRange} avatarColor={c.avatarColor}
+                tasks={c.tasks} initialDoneMap={c.initialDoneMap}
+                onProgressChange={onProgressChange}
+              />
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
 
 function DashboardScreen({
@@ -1346,64 +1444,52 @@ function DashboardScreen({
   width?: number | string;
   height?: number | string;
 }) {
-  const scrollRef      = useRef<HTMLDivElement>(null);
-  const anytimeRef     = useRef<HTMLDivElement>(null);
-  const plannedRef     = useRef<HTMLDivElement>(null);
-  const [anytimeExpanded, setAnytimeExpanded] = useState(true);
-  const [plannedExpanded, setPlannedExpanded] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Read content height on every render so the clip div always animates
-  // to the real scrollHeight instead of an arbitrary 9999px ceiling.
-  // A 400px buffer is kept to accommodate inner card expansions.
-  const anytimeMaxH = anytimeExpanded
-    ? `${(anytimeRef.current?.scrollHeight ?? 600) + 400}px`
-    : "0px";
-  const plannedMaxH = plannedExpanded
-    ? `${(plannedRef.current?.scrollHeight ?? 800) + 400}px`
-    : "0px";
-
-  // Active day (default Monday = 2) and per-day progress tracking
+  // Active day — default Monday
   const [activeDay, setActiveDay] = useState<number>(2);
-  // Frozen progress for non-active days; Sunday pre-seeded at 75 %
-  const [savedDayProgress, setSavedDayProgress] = useState<Record<number, number>>({ 1: 0.75 });
 
-  // Live progress for the currently active day
-  const [progressMap, setProgressMap] = useState<Record<string, { done: number; total: number }>>({});
-  const handleProgressChange = useCallback((id: string, done: number, total: number) => {
-    setProgressMap((prev) => {
-      const entry = prev[id];
-      if (entry && entry.done === done && entry.total === total) return prev; // no-op
-      return { ...prev, [id]: { done, total } };
-    });
+  // Per-day progress maps — never cleared, so card state survives day switches.
+  // Keyed by day id → card id → { done, total }.
+  const [progressMaps, setProgressMaps] = useState<
+    Record<number, Record<string, { done: number; total: number }>>
+  >({});
+
+  // Stable per-day handlers created once; each captures its own dayId.
+  const progressHandlers = useMemo(() => {
+    const out: Record<number, (id: string, done: number, total: number) => void> = {};
+    for (const dayId of Object.keys(DAY_CONTENT).map(Number)) {
+      out[dayId] = (id, done, total) => {
+        setProgressMaps((prev) => {
+          const dayMap = prev[dayId] ?? {};
+          const entry = dayMap[id];
+          if (entry && entry.done === done && entry.total === total) return prev;
+          return { ...prev, [dayId]: { ...dayMap, [id]: { done, total } } };
+        });
+      };
+    }
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { totalDone, totalAll } = Object.values(progressMap).reduce(
-    (acc, { done, total }) => ({ totalDone: acc.totalDone + done, totalAll: acc.totalAll + total }),
-    { totalDone: 0, totalAll: 0 }
-  );
-  const liveProgress = totalAll > 0 ? totalDone / totalAll : 0;
-
-  // Map passed to WeekStrip: live for active day, frozen snapshot for others
-  const fullProgressMap: Record<number, number> = { ...savedDayProgress, [activeDay]: liveProgress };
-
-  // "Due Today" counts cards (not subtasks) that aren't fully done yet.
-  // Cards not yet in progressMap haven't been touched → still incomplete.
-  const dayData = DAY_CONTENT[activeDay];
-  const anytimeIds = new Set(dayData?.anytime.map((c) => c.id) ?? []);
-  const totalCards = anytimeIds.size;
-  const completedCards = Object.entries(progressMap).filter(
-    ([id, { done, total }]) => anytimeIds.has(id) && total > 0 && done === total
-  ).length;
-  const dueToday = totalCards - completedCards;
+  // Derive a progress value (0–1) for each day from its map
+  const fullProgressMap = useMemo(() => {
+    const result: Record<number, number> = {};
+    for (const [dayIdStr, dayMap] of Object.entries(progressMaps)) {
+      const { totalDone, totalAll } = Object.values(dayMap).reduce(
+        (acc, { done, total }) => ({ totalDone: acc.totalDone + done, totalAll: acc.totalAll + total }),
+        { totalDone: 0, totalAll: 0 }
+      );
+      if (totalAll > 0) result[Number(dayIdStr)] = totalDone / totalAll;
+    }
+    return result;
+  }, [progressMaps]);
 
   const switchDay = useCallback((day: number) => {
     if (day === activeDay) return;
-    setSavedDayProgress((prev) => ({ ...prev, [activeDay]: liveProgress }));
-    setProgressMap({});          // reset live map for the new day
     setActiveDay(day);
     scrollRef.current?.scrollTo({ top: 0 });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDay, liveProgress]);
+  }, [activeDay]);
 
   // Drag state stored in a ref so it never causes re-renders
   const drag = useRef({ active: false, startY: 0, startScroll: 0 });
@@ -1482,74 +1568,17 @@ function DashboardScreen({
           scrollbarWidth: "none",
         } as React.CSSProperties}
       >
-        <div style={{ paddingBottom: 100 }}>
-          {(() => {
-            const day = DAY_CONTENT[activeDay];
-
-            return (
-              <>
-                {/* ── Anytime Section ── */}
-                <SectionHeader
-                  id="anytime-header"
-                  title="Anytime"
-                  badge={<DueTodayBadge count={dueToday} />}
-                  expanded={anytimeExpanded}
-                  onToggle={() => setAnytimeExpanded((v) => !v)}
-                />
-                <div
-                  style={{
-                    maxHeight: anytimeMaxH, overflow: "hidden",
-                    transition: anytimeExpanded
-                      ? `max-height ${MS.dExpand} ${MS.eOut}`
-                      : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
-                  }}
-                >
-                  <div ref={anytimeRef} id="anytime-cards" className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
-                    {day?.anytime.map((c) => (
-                      <TaskCard
-                        key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
-                        tasks={c.tasks} initialDoneMap={c.initialDoneMap}
-                        initialChecked={c.initialChecked}
-                        onProgressChange={handleProgressChange}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Planned Section ── */}
-                <SectionHeader
-                  id="planned-header"
-                  title="Planned"
-                  expanded={plannedExpanded}
-                  onToggle={() => setPlannedExpanded((v) => !v)}
-                />
-                <div
-                  style={{
-                    maxHeight: plannedMaxH, overflow: "hidden",
-                    transition: plannedExpanded
-                      ? `max-height ${MS.dExpand} ${MS.eOut}`
-                      : `max-height ${MS.dExpandClose} ${MS.eInOut}`,
-                  }}
-                >
-                  <div ref={plannedRef} id="planned-cards" className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
-                    {day?.planned.map((c) =>
-                      c.kind === "gap" ? (
-                        <GapBar key={c.id} id={c.id} label={c.label} />
-                      ) : (
-                        <TimedCard
-                          key={c.id} id={c.id} title={c.title}
-                          timeRange={c.timeRange} avatarColor={c.avatarColor}
-                          tasks={c.tasks} initialDoneMap={c.initialDoneMap}
-                          onProgressChange={handleProgressChange}
-                        />
-                      )
-                    )}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </div>
+        {/* Render all 7 days simultaneously; only the active one is visible.
+            This keeps card components mounted so checkbox state is never lost. */}
+        {Object.keys(DAY_CONTENT).map(Number).map((dayId) => (
+          <DayContent
+            key={dayId}
+            dayId={dayId}
+            isVisible={dayId === activeDay}
+            progressMap={progressMaps[dayId] ?? {}}
+            onProgressChange={progressHandlers[dayId]}
+          />
+        ))}
       </div>
 
       <FABButton />
