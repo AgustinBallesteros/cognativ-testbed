@@ -71,7 +71,55 @@ function StatusBar() {
   );
 }
 
+type CalendarView = "day" | "3day" | "month";
+
+const CALENDAR_VIEWS: { id: CalendarView; label: string; icon: React.ReactNode }[] = [
+  {
+    id: "day",
+    label: "Day",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M17.75 3C19.5449 3 21 4.45507 21 6.25V17.75C21 19.5449 19.5449 21 17.75 21H6.25C4.45507 21 3 19.5449 3 17.75V6.25C3 4.45507 4.45507 3 6.25 3H17.75ZM17.75 4.5H6.25C5.2835 4.5 4.5 5.2835 4.5 6.25V17.75C4.5 18.7165 5.2835 19.5 6.25 19.5H17.75C18.7165 19.5 19.5 18.7165 19.5 17.75V6.25C19.5 5.2835 18.7165 4.5 17.75 4.5ZM16.25 11C16.6642 11 17 11.3358 17 11.75V16.25C17 16.6642 16.6642 17 16.25 17H7.75C7.33579 17 7 16.6642 7 16.25V11.75C7 11.3358 7.33579 11 7.75 11H16.25ZM15.5 12.5H8.5V15.5H15.5V12.5ZM7.75 7.25H16.25C16.6642 7.25 17 7.58579 17 8C17 8.3797 16.7178 8.69349 16.3518 8.74315L16.25 8.75H7.75C7.33579 8.75 7 8.41421 7 8C7 7.6203 7.28215 7.30651 7.64823 7.25685L7.75 7.25H16.25H7.75Z" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    id: "3day",
+    label: "3 day",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M17.75 3C19.5449 3 21 4.45507 21 6.25V17.75C21 19.5449 19.5449 21 17.75 21H6.25C4.45507 21 3 19.5449 3 17.75V6.25C3 4.45507 4.45507 3 6.25 3H17.75ZM17.75 4.5H6.25C5.2835 4.5 4.5 5.2835 4.5 6.25V17.75C4.5 18.7165 5.2835 19.5 6.25 19.5H17.75C18.7165 19.5 19.5 18.7165 19.5 17.75V6.25C19.5 5.2835 18.7165 4.5 17.75 4.5ZM7.75 7C8.1297 7 8.44349 7.28215 8.49315 7.64823L8.5 7.75V16.25C8.5 16.6642 8.16421 17 7.75 17C7.3703 17 7.05651 16.7178 7.00685 16.3518L7 16.25V7.75C7 7.33579 7.33579 7 7.75 7ZM16.25 7C16.6297 7 16.9435 7.28215 16.9932 7.64823L17 7.75V16.25C17 16.6642 16.6642 17 16.25 17C15.8703 17 15.5565 16.7178 15.5068 16.3518L15.5 16.25V7.75C15.5 7.33579 15.8358 7 16.25 7ZM12 7C12.3797 7 12.6935 7.28215 12.7432 7.64823L12.75 7.75V16.25C12.75 16.6642 12.4142 17 12 17C11.6203 17 11.3065 16.7178 11.2568 16.3518L11.25 16.25V7.75C11.25 7.33579 11.5858 7 12 7Z" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    id: "month",
+    label: "Month",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M17.75 3C19.5449 3 21 4.45507 21 6.25V17.75C21 19.5449 19.5449 21 17.75 21H6.25C4.45507 21 3 19.5449 3 17.75V6.25C3 4.45507 4.45507 3 6.25 3H17.75ZM17.75 4.5H6.25C5.2835 4.5 4.5 5.2835 4.5 6.25V17.75C4.5 18.7165 5.2835 19.5 6.25 19.5H17.75C18.7165 19.5 19.5 18.7165 19.5 17.75V6.25C19.5 5.2835 18.7165 4.5 17.75 4.5ZM7.75 13.5C8.44036 13.5 9 14.0596 9 14.75C9 15.4404 8.44036 16 7.75 16C7.05964 16 6.5 15.4404 6.5 14.75C6.5 14.0596 7.05964 13.5 7.75 13.5ZM12 13.5C12.6904 13.5 13.25 14.0596 13.25 14.75C13.25 15.4404 12.6904 16 12 16C11.3096 16 10.75 15.4404 10.75 14.75C10.75 14.0596 11.3096 13.5 12 13.5ZM7.75 8.5C8.44036 8.5 9 9.05964 9 9.75C9 10.4404 8.44036 11 7.75 11C7.05964 11 6.5 10.4404 6.5 9.75C6.5 9.05964 7.05964 8.5 7.75 8.5ZM12 8.5C12.6904 8.5 13.25 9.05964 13.25 9.75C13.25 10.4404 12.6904 11 12 11C11.3096 11 10.75 10.4404 10.75 9.75C10.75 9.05964 11.3096 8.5 12 8.5ZM16.25 8.5C16.9404 8.5 17.5 9.05964 17.5 9.75C17.5 10.4404 16.9404 11 16.25 11C15.5596 11 15 10.4404 15 9.75C15 9.05964 15.5596 8.5 16.25 8.5Z" fill="currentColor" />
+      </svg>
+    ),
+  },
+];
+
 function Header() {
+  const [view,     setView]     = useState<CalendarView>("day");
+  const [dropOpen, setDropOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const active = CALENDAR_VIEWS.find((v) => v.id === view)!;
+
+  // Close dropdown when tapping outside
+  useEffect(() => {
+    if (!dropOpen) return;
+    const handler = (e: PointerEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setDropOpen(false);
+    };
+    window.addEventListener("pointerdown", handler);
+    return () => window.removeEventListener("pointerdown", handler);
+  }, [dropOpen]);
+
   return (
     <div
       id="header"
@@ -83,16 +131,64 @@ function Header() {
         <div className="font-bold text-black" style={{ fontSize: 26, lineHeight: "1.1" }}>April</div>
         <div className="font-normal text-black/50" style={{ fontSize: 13, marginTop: 1 }}>2026</div>
       </div>
-      {/* Day button */}
-      <div
-        id="day-toggle"
-        className="flex items-center gap-1.5 rounded-full px-3"
-        style={{ background: "#F2F2F2", height: 34, marginTop: 4 }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M17.75 3C19.5449 3 21 4.45507 21 6.25V17.75C21 19.5449 19.5449 21 17.75 21H6.25C4.45507 21 3 19.5449 3 17.75V6.25C3 4.45507 4.45507 3 6.25 3H17.75ZM17.75 4.5H6.25C5.2835 4.5 4.5 5.2835 4.5 6.25V17.75C4.5 18.7165 5.2835 19.5 6.25 19.5H17.75C18.7165 19.5 19.5 18.7165 19.5 17.75V6.25C19.5 5.2835 18.7165 4.5 17.75 4.5ZM16.25 11C16.6642 11 17 11.3358 17 11.75V16.25C17 16.6642 16.6642 17 16.25 17H7.75C7.33579 17 7 16.6642 7 16.25V11.75C7 11.3358 7.33579 11 7.75 11H16.25ZM15.5 12.5H8.5V15.5H15.5V12.5ZM7.75 7.25H16.25C16.6642 7.25 17 7.58579 17 8C17 8.3797 16.7178 8.69349 16.3518 8.74315L16.25 8.75H7.75C7.33579 8.75 7 8.41421 7 8C7 7.6203 7.28215 7.30651 7.64823 7.25685L7.75 7.25H16.25H7.75Z" fill="#242424"/>
-        </svg>
-        <span className="font-medium text-black" style={{ fontSize: 13 }}>Day</span>
+
+      {/* View picker */}
+      <div ref={containerRef} style={{ position: "relative", marginTop: 4 }}>
+        {/* Trigger button */}
+        <div
+          onClick={() => setDropOpen((v) => !v)}
+          className="flex items-center gap-1.5 px-3"
+          style={{
+            background: "#F2F2F2", height: 34, borderRadius: 10,
+            cursor: "pointer", userSelect: "none",
+            color: "#242424",
+          }}
+        >
+          {active.icon}
+          <span className="font-medium text-black" style={{ fontSize: 13 }}>{active.label}</span>
+        </div>
+
+        {/* Dropdown */}
+        <div
+          style={{
+            position: "absolute", top: "calc(100% + 6px)", right: 0,
+            background: "#fff",
+            borderRadius: 14,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.07)",
+            padding: "6px",
+            display: "flex", flexDirection: "column", gap: 2,
+            minWidth: 150,
+            zIndex: 50,
+            pointerEvents: dropOpen ? "auto" : "none",
+            opacity: dropOpen ? 1 : 0,
+            transform: dropOpen ? "translateY(0) scale(1)" : "translateY(-6px) scale(0.97)",
+            transformOrigin: "top right",
+            transition: `opacity ${MS.dElement} ${MS.eOut}, transform ${MS.dElement} ${MS.eOut}`,
+          }}
+        >
+          {CALENDAR_VIEWS.map((v) => {
+            const isSelected = v.id === view;
+            return (
+              <div
+                key={v.id}
+                onClick={() => { setView(v.id); setDropOpen(false); }}
+                className="flex items-center gap-2.5"
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 9,
+                  background: isSelected ? "#F2F2F2" : "transparent",
+                  cursor: "pointer",
+                  userSelect: "none",
+                  color: "#242424",
+                  transition: `background ${MS.dFast} ${MS.eOut}`,
+                }}
+              >
+                {v.icon}
+                <span className="font-medium" style={{ fontSize: 14 }}>{v.label}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
