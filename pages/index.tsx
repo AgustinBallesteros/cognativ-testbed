@@ -296,13 +296,13 @@ function DayRing({ progress }: { progress: number }) {
 }
 
 const WEEK_DAYS = [
-  { label: "S", num: "1", id: 1 },
-  { label: "M", num: "2", id: 2 },
-  { label: "T", num: "3", id: 3 },
-  { label: "W", num: "4", id: 4 },
-  { label: "T", num: "5", id: 5 },
-  { label: "F", num: "6", id: 6 },
-  { label: "S", num: "7", id: 7 },
+  { label: "S", fullLabel: "Sun", num: "1", id: 1 },
+  { label: "M", fullLabel: "Mon", num: "2", id: 2 },
+  { label: "T", fullLabel: "Tue", num: "3", id: 3 },
+  { label: "W", fullLabel: "Wed", num: "4", id: 4 },
+  { label: "T", fullLabel: "Thu", num: "5", id: 5 },
+  { label: "F", fullLabel: "Fri", num: "6", id: 6 },
+  { label: "S", fullLabel: "Sat", num: "7", id: 7 },
 ];
 
 function WeekStrip({
@@ -1667,15 +1667,35 @@ function DayColumn({
         display: "flex", flexDirection: "column",
       }}
     >
-      {/* Day header */}
-      <div className="flex flex-col items-center" style={{ paddingTop: 8, paddingBottom: 8 }}>
-        <div style={{ position: "relative", width: 44, height: 52 }}>
-          <DayRing progress={ringProgress} />
-          <div className="flex flex-col items-center justify-center" style={{ width: "100%", height: "100%" }}>
-            <span className="font-medium" style={{ fontSize: 12, color: isToday ? BLUE : "#000", lineHeight: "1.2" }}>
-              {dayInfo.label}
+      {/* Day header — full column width card */}
+      <div style={{ padding: "8px 5px 4px" }}>
+        <div
+          style={{
+            position: "relative",
+            borderRadius: 12,
+            background: isToday ? `color-mix(in srgb, ${BLUE} 8%, #F4F4F4)` : "#F4F4F4",
+            height: 62,
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            overflow: "hidden",
+          }}
+        >
+          {/* Progress ring — centered around the text block */}
+          <div style={{ position: "relative", width: 44, height: 52, flexShrink: 0 }}>
+            <DayRing progress={ringProgress} />
+          </div>
+          {/* Text overlay centered in the ring */}
+          <div
+            style={{
+              position: "absolute", inset: 0,
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <span className="font-semibold" style={{ fontSize: 13, color: isToday ? BLUE : "#000", lineHeight: "1.15" }}>
+              {dayInfo.fullLabel}
             </span>
-            <span className="font-medium" style={{ fontSize: 13, color: isToday ? BLUE : "#585858", marginTop: 2 }}>
+            <span className="font-bold" style={{ fontSize: 15, color: isToday ? BLUE : "#3a3a3a", marginTop: 1 }}>
               {dayInfo.num}
             </span>
           </div>
