@@ -2091,11 +2091,21 @@ function MonthGrid({
               const isToday  = offset === 0 && date === MONTH_TODAY_DATE;
               const dayId    = offset === 0 ? (APRIL_DATE_TO_DAYID[date] ?? null) : null;
               const hasTasks = dayId !== null;
-              const allDots  = getDotColors(date);
-              const maxDots  = 3;
-              const visibleDots = allDots.slice(0, maxDots);
-              const extraDots   = Math.max(0, allDots.length - maxDots);
-              const ringProg    = getRingProgress(date);
+              const ringProg = getRingProgress(date);
+
+              // Build ordered element list: dots + optional "+N" overflow, then chunk into rows of 3
+              const allDots = getDotColors(date);
+              const MAX_DOT_SHOW = 6;
+              type DotEl = { kind: "dot"; color: string } | { kind: "more"; n: number };
+              const dotElems: DotEl[] =
+                allDots.length <= MAX_DOT_SHOW
+                  ? allDots.map((c) => ({ kind: "dot", color: c }))
+                  : [
+                      ...allDots.slice(0, MAX_DOT_SHOW - 1).map((c): DotEl => ({ kind: "dot", color: c })),
+                      { kind: "more", n: allDots.length - (MAX_DOT_SHOW - 1) },
+                    ];
+              const dotRows: DotEl[][] = [];
+              for (let i = 0; i < dotElems.length; i += 3) dotRows.push(dotElems.slice(i, i + 3));
 
               return (
                 <div
@@ -2113,27 +2123,28 @@ function MonthGrid({
                     userSelect: "none",
                   }}
                 >
-                  {/* Task color dots at top */}
-                  <div
-                    style={{
-                      display: "flex", flexWrap: "wrap", gap: 2,
-                      justifyContent: "center",
-                      minHeight: 12, marginBottom: 3,
-                    }}
-                  >
-                    {visibleDots.map((color, ci) => (
-                      <div key={ci} style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  {/* Dot rows — 8×8, max 3 per row, centered, +N counts as a dot slot */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", minHeight: 20, marginBottom: 3 }}>
+                    {dotRows.map((row, ri) => (
+                      <div key={ri} style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+                        {row.map((el, ei) =>
+                          el.kind === "dot" ? (
+                            <div key={ei} style={{ width: 8, height: 8, borderRadius: "50%", background: el.color, flexShrink: 0 }} />
+                          ) : (
+                            <div key={ei} style={{ width: 8, height: 8, borderRadius: 2, background: "#e8e8e8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <span style={{ fontSize: 5, color: "#999", fontWeight: 700, lineHeight: 1 }}>+{el.n}</span>
+                            </div>
+                          )
+                        )}
+                      </div>
                     ))}
-                    {extraDots > 0 && (
-                      <span style={{ fontSize: 7.5, color: "#bbb", lineHeight: "1.4" }}>+{extraDots}</span>
-                    )}
                   </div>
 
-                  {/* Date number + progress ring at bottom */}
+                  {/* Date number + progress ring */}
                   <div style={{ position: "relative", width: 26, height: 26, marginTop: "auto" }}>
                     <MonthCellRing progress={ringProg} size={26} />
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: 12, lineHeight: 1, fontWeight: isToday ? 700 : 500, color: isToday ? BLUE : "#1a1a1a" }}>
+                      <span style={{ fontSize: 14, lineHeight: 1, fontWeight: isToday ? 700 : 500, color: isToday ? BLUE : "#1a1a1a" }}>
                         {date}
                       </span>
                     </div>
