@@ -2729,7 +2729,6 @@ function DesktopHeader({
       height: 64, flexShrink: 0,
       display: "flex", alignItems: "center",
       paddingLeft: 24, paddingRight: 24, gap: 10,
-      borderBottom: "1px solid rgba(0,0,0,0.07)",
       background: "#fff",
     }}>
 
@@ -2838,11 +2837,250 @@ function DesktopHeader({
   );
 }
 
+// ─── Desktop calendar helpers ─────────────────────────────────────────────────
+
+function parseTimeStr(t: string): number {
+  const cleaned = t.replace(/\s+/g, "");
+  const isPM    = /pm$/i.test(cleaned);
+  const isAM    = /am$/i.test(cleaned);
+  const core    = cleaned.replace(/[apm]+$/i, "");
+  const [hStr, mStr] = core.split(":");
+  let h  = parseInt(hStr, 10);
+  const m = parseInt(mStr ?? "0", 10);
+  if (isPM && h !== 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+function parseTimeRange(tr: string): { startMin: number; endMin: number } {
+  const parts = tr.split("→").map((s) => s.trim());
+  return { startMin: parseTimeStr(parts[0]!), endMin: parseTimeStr(parts[1] ?? parts[0]!) };
+}
+
+type TimeItem = {
+  entry: TimedEntry;
+  startMin: number; endMin: number;
+  colIndex: number; colCount: number;
+};
+
+function buildTimeLayout(entries: TimedEntry[]): TimeItem[] {
+  if (!entries.length) return [];
+  const items: TimeItem[] = entries
+    .map((e) => ({ entry: e, ...parseTimeRange(e.timeRange), colIndex: 0, colCount: 1 }))
+    .sort((a, b) => a.startMin - b.startMin);
+
+  // Sweep: group overlapping intervals
+  const groups: TimeItem[][] = [];
+  let current: TimeItem[] = [];
+  let groupMax = -Infinity;
+  for (const item of items) {
+    if (current.length > 0 && item.startMin >= groupMax) {
+      groups.push(current);
+      current = [];
+      groupMax = -Infinity;
+    }
+    current.push(item);
+    groupMax = Math.max(groupMax, item.endMin);
+  }
+  if (current.length) groups.push(current);
+
+  return groups.flatMap((group) =>
+    group.map((item, idx) => ({ ...item, colIndex: idx, colCount: group.length }))
+  );
+}
+
+// ─── Desktop timeline card ────────────────────────────────────────────────────
+
+const DESKTOP_TL_START = 7;   // 7 AM
+const DESKTOP_TL_END   = 20;  // 8 PM
+const DESKTOP_PX_PER_H = 100; // px per hour
+const DESKTOP_LABEL_W  = 64;  // px width of time-label column
+
+function DesktopTimelineCard({
+  entry, startMin, endMin, colIndex, colCount,
+  focused, onFocus,
+}: {
+  entry: TimedEntry;
+  startMin: number; endMin: number;
+  colIndex: number; colCount: number;
+  focused: boolean;
+  onFocus: (id: string) => void;
+}) {
+  const top       = ((startMin - DESKTOP_TL_START * 60) / 60) * DESKTOP_PX_PER_H;
+  const height    = Math.max(((endMin - startMin) / 60) * DESKTOP_PX_PER_H, 44);
+  const widthPct  = 100 / colCount;
+  const leftPct   = colIndex * widthPct;
+  const taskCount = entry.tasks?.length ?? 0;
+
+  return (
+    <div
+      onClick={() => onFocus(entry.id)}
+      style={{
+        position: "absolute",
+        top,
+        left: `calc(${leftPct}% + 4px)`,
+        width: `calc(${widthPct}% - 8px)`,
+        height,
+        background: "#fff",
+        borderRadius: 12,
+        boxShadow: focused ? `0 0 0 2px ${BLUE}, ${CARD_SHADOW}` : CARD_SHADOW,
+        overflow: "hidden",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "row",
+        transition: `box-shadow ${MS.dFast} ${MS.eOut}`,
+        userSelect: "none",
+      }}
+    >
+      {/* Accent bar */}
+      <div style={{ width: 4, flexShrink: 0, background: entry.avatarColor }} />
+      {/* Text */}
+      <div style={{
+        flex: 1, paddingLeft: 10, paddingTop: 8, paddingBottom: 8, paddingRight: 4,
+        display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0,
+      }}>
+        <div className="font-bold" style={{ fontSize: 13, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {entry.title}
+        </div>
+        {taskCount > 0 && (
+          <div className="flex items-center gap-1" style={{ marginTop: 2 }}>
+            <span style={{ fontSize: 11, color: "#888" }}>Task list ({taskCount})</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M2 4l3 3 3-3" stroke="#bbb" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        )}
+      </div>
+      {/* Checkbox */}
+      <div style={{ display: "flex", alignItems: "center", paddingRight: 12, flexShrink: 0 }}>
+        <div style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid #ddd" }} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop calendar content ─────────────────────────────────────────────────
+
+function DesktopCalendarContent({
+  activeDay, focusedId, onFocusEntry,
+}: {
+  activeDay: number;
+  focusedId: string | null;
+  onFocusEntry: (id: string) => void;
+}) {
+  const day = DAY_CONTENT[activeDay];
+
+  // Progress tracking for "Due Today" badge
+  const [progressMap, setProgressMap] = useState<Record<string, { done: number; total: number }>>({});
+  const onProgressChange = useCallback((id: string, done: number, total: number) => {
+    setProgressMap((prev) => ({ ...prev, [id]: { done, total } }));
+  }, []);
+  const anytimeIds     = new Set((day?.anytime ?? []).map((c) => c.id));
+  const completedCount = Object.entries(progressMap).filter(
+    ([id, { done, total }]) => anytimeIds.has(id) && total > 0 && done === total
+  ).length;
+  const dueToday = anytimeIds.size - completedCount;
+
+  const timedEntries = useMemo(
+    () => (day?.planned ?? []).filter((e): e is TimedEntry => e.kind === "timed"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeDay]
+  );
+  const timeLayout = useMemo(() => buildTimeLayout(timedEntries), [timedEntries]);
+
+  const hours  = Array.from(
+    { length: DESKTOP_TL_END - DESKTOP_TL_START },
+    (_, i) => DESKTOP_TL_START + i
+  );
+  const totalH = hours.length * DESKTOP_PX_PER_H;
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#fff" }}>
+
+      {/* ── Anytime ── */}
+      <div style={{ flexShrink: 0, padding: "12px 0 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+        <div className="flex items-center gap-2" style={{ marginBottom: 10, paddingLeft: 20 }}>
+          <span className="font-medium" style={{ fontSize: 14, color: "#666" }}>Anytime</span>
+          <DueTodayBadge count={dueToday} />
+        </div>
+        <div className="flex flex-col gap-2">
+          {day?.anytime.map((c) => (
+            <TaskCard
+              key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
+              tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
+              initialChecked={c.initialChecked}
+              onProgressChange={onProgressChange}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Scrollable timeline ── */}
+      <div
+        id="desktop-timeline"
+        style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}
+      >
+        <div style={{ position: "relative", height: totalH }}>
+
+          {/* Hour grid lines + labels */}
+          {hours.flatMap((hour) => {
+            const y     = (hour - DESKTOP_TL_START) * DESKTOP_PX_PER_H;
+            const label = hour < 12
+              ? `${hour} AM`
+              : hour === 12 ? "12 PM" : `${hour - 12} PM`;
+            return [
+              <div
+                key={`line-${hour}`}
+                style={{ position: "absolute", top: y, left: DESKTOP_LABEL_W, right: 12, height: 1, background: "rgba(0,0,0,0.07)" }}
+              />,
+              <div
+                key={`half-${hour}`}
+                style={{ position: "absolute", top: y + DESKTOP_PX_PER_H / 2, left: DESKTOP_LABEL_W, right: 12, height: 1, background: "rgba(0,0,0,0.035)" }}
+              />,
+              <div
+                key={`lbl-${hour}`}
+                style={{ position: "absolute", top: y + 5, left: 10, fontSize: 11, color: "#aaa", fontWeight: 500, userSelect: "none" }}
+              >
+                {label}
+              </div>,
+            ];
+          })}
+
+          {/* Task cards — positioned relative to label column right edge */}
+          <div style={{ position: "absolute", top: 0, left: DESKTOP_LABEL_W, right: 0, bottom: 0 }}>
+            {timeLayout.map(({ entry, startMin, endMin, colIndex, colCount }) => (
+              <DesktopTimelineCard
+                key={entry.id}
+                entry={entry}
+                startMin={startMin}
+                endMin={endMin}
+                colIndex={colIndex}
+                colCount={colCount}
+                focused={focusedId === entry.id}
+                onFocus={onFocusEntry}
+              />
+            ))}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Desktop screen ───────────────────────────────────────────────────────────
 
 function DesktopScreen() {
   const [activeDay, setActiveDay] = useState<number>(CURRENT_DAY);
   const [view,      setView]      = useState<CalendarView>("day");
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  // Refs for sidebar cards — used to scroll focused card into view
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  useEffect(() => {
+    if (!focusedId) return;
+    cardRefs.current[focusedId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [focusedId]);
 
   const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
   const navigateDay = (delta: number) => {
@@ -2858,9 +3096,12 @@ function DesktopScreen() {
       fontFamily: "var(--font-inter)",
       overflow: "hidden",
     }}>
-      <style>{`#desktop-sidebar::-webkit-scrollbar { display: none; }`}</style>
+      <style>{`
+        #desktop-sidebar::-webkit-scrollbar  { display: none; }
+        #desktop-timeline::-webkit-scrollbar { display: none; }
+      `}</style>
 
-      {/* Sidebar — 20% */}
+      {/* ── Sidebar — 20% ── */}
       <div id="desktop-sidebar" style={{
         width: "20%", flexShrink: 0,
         background: "#fff",
@@ -2870,7 +3111,16 @@ function DesktopScreen() {
         scrollbarWidth: "none",
       } as React.CSSProperties}>
         {(DAY_CONTENT[2].planned.filter((e) => e.kind === "timed") as TimedEntry[]).map((entry) => (
-          <div key={entry.id} style={{ marginBottom: 8 }}>
+          <div
+            key={entry.id}
+            ref={(el) => { cardRefs.current[entry.id] = el; }}
+            style={{
+              marginBottom: 8,
+              borderRadius: 14,
+              outline: focusedId === entry.id ? `2px solid ${BLUE}` : "2px solid transparent",
+              transition: `outline-color ${MS.dFast} ${MS.eOut}`,
+            }}
+          >
             <TimedCard
               id={entry.id}
               title={entry.title}
@@ -2883,8 +3133,13 @@ function DesktopScreen() {
         ))}
       </div>
 
-      {/* Main content — 80% */}
-      <div style={{ width: "80%", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* ── Main content — 80% ── */}
+      <div style={{
+        width: "80%", height: "100%",
+        display: "flex", flexDirection: "column",
+        overflow: "hidden",
+        position: "relative",
+      }}>
         <DesktopHeader
           activeDay={activeDay}
           view={view}
@@ -2892,8 +3147,28 @@ function DesktopScreen() {
           onPrevDay={() => navigateDay(-1)}
           onNextDay={() => navigateDay(1)}
         />
-        {/* Content area (to be built) */}
-        <div style={{ flex: 1, background: "#fff" }} />
+
+        <DesktopCalendarContent
+          activeDay={activeDay}
+          focusedId={focusedId}
+          onFocusEntry={setFocusedId}
+        />
+
+        {/* FAB */}
+        <div
+          style={{
+            position: "absolute", bottom: 24, right: 24, zIndex: 10,
+            width: 52, height: 52, borderRadius: 14,
+            background: "#1a1a1a",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", userSelect: "none",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.22)",
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path d="M11 4v14M4 11h14" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+        </div>
       </div>
     </div>
   );
