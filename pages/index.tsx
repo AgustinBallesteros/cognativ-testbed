@@ -719,6 +719,7 @@ function TimedCard({
   avatarColor,
   tasks = [],
   initialDoneMap,
+  initialExpanded = false,
   onProgressChange,
   forceSignal,
 }: {
@@ -728,10 +729,11 @@ function TimedCard({
   avatarColor: string;
   tasks?: SubTask[];
   initialDoneMap?: Record<number, boolean>;
+  initialExpanded?: boolean;
   onProgressChange?: (id: string, done: number, total: number) => void;
   forceSignal?: ForceSignal;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initialExpanded);
   const [doneMap,  setDoneMap]  = useState<Record<number, boolean>>(() => initialDoneMap ?? {});
 
   const total     = tasks.length;
@@ -2702,7 +2704,30 @@ function DesktopScreen() {
       overflow: "hidden",
     }}>
       {/* Sidebar — 20% */}
-      <div style={{ width: "20%", height: "100%", background: "#F5F5F5", flexShrink: 0 }} />
+      <div style={{
+        width: "20%", height: "100%", flexShrink: 0,
+        background: "#fff",
+        borderRight: "1px solid rgba(0,0,0,0.07)",
+        overflowY: "auto",
+        display: "flex", flexDirection: "column", gap: 8,
+        padding: "12px 0 24px",
+      }}>
+        {DAY_CONTENT[2].planned.map((entry) =>
+          entry.kind === "gap" ? (
+            <GapBar key={entry.id} id={entry.id} label={entry.label} />
+          ) : (
+            <TimedCard
+              key={entry.id}
+              id={entry.id}
+              title={entry.title}
+              timeRange={entry.timeRange}
+              avatarColor={entry.avatarColor}
+              tasks={entry.tasks}
+              initialExpanded={true}
+            />
+          )
+        )}
+      </div>
 
       {/* Main content — 80% */}
       <div style={{ width: "80%", height: "100%", background: "#FFFFFF" }} />
