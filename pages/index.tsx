@@ -2709,19 +2709,19 @@ function DesktopScreen() {
         background: "#fff",
         borderRight: "1px solid rgba(0,0,0,0.07)",
         overflowY: "auto",
-        display: "flex", flexDirection: "column", gap: 8,
         padding: "12px 0 24px",
       }}>
         {(DAY_CONTENT[2].planned.filter((e) => e.kind === "timed") as TimedEntry[]).map((entry) => (
-          <TimedCard
-            key={entry.id}
-            id={entry.id}
-            title={entry.title}
-            timeRange={entry.timeRange}
-            avatarColor={entry.avatarColor}
-            tasks={entry.tasks}
-            initialExpanded={true}
-          />
+          <div key={entry.id} style={{ marginBottom: 8 }}>
+            <TimedCard
+              id={entry.id}
+              title={entry.title}
+              timeRange={entry.timeRange}
+              avatarColor={entry.avatarColor}
+              tasks={entry.tasks}
+              initialExpanded={true}
+            />
+          </div>
         ))}
       </div>
 
