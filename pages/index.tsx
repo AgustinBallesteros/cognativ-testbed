@@ -720,6 +720,7 @@ function TimedCard({
   tasks = [],
   initialDoneMap,
   initialExpanded = false,
+  noHorizontalMargin = false,
   onProgressChange,
   forceSignal,
 }: {
@@ -730,6 +731,7 @@ function TimedCard({
   tasks?: SubTask[];
   initialDoneMap?: Record<number, boolean>;
   initialExpanded?: boolean;
+  noHorizontalMargin?: boolean;
   onProgressChange?: (id: string, done: number, total: number) => void;
   forceSignal?: ForceSignal;
 }) {
@@ -783,7 +785,7 @@ function TimedCard({
   return (
     <div
       id={id}
-      className="mx-4 bg-white"
+      className={`${noHorizontalMargin ? "" : "mx-4 "}bg-white`}
       style={{ boxShadow: CARD_SHADOW, borderRadius: 14, overflow: "hidden" }}
     >
       {/* ── Header ── */}
@@ -3017,7 +3019,7 @@ function DesktopCalendarContent({
 
   return (
     /* Outer shell — margin gap around the rounded frame */
-    <div style={{ flex: 1, overflow: "hidden", background: "#F5F5F5", padding: "0 12px 12px 12px" }}>
+    <div style={{ flex: 1, overflow: "hidden", background: "#fff", padding: "0 12px 12px 12px" }}>
       {/* Rounded frame */}
       <div style={{
         height: "100%",
@@ -3073,7 +3075,7 @@ function DesktopCalendarContent({
                 />,
                 <div
                   key={`lbl-${hour}`}
-                  style={{ position: "absolute", top: y + 5, left: 10, fontSize: 11, color: "#aaa", fontWeight: 500, userSelect: "none", zIndex: 1 }}
+                  style={{ position: "absolute", top: y + 5, left: 0, width: DESKTOP_LABEL_W - 8, textAlign: "right", fontSize: 11, color: "#aaa", fontWeight: 500, userSelect: "none", zIndex: 1 }}
                 >
                   {label}
                 </div>,
@@ -3164,6 +3166,7 @@ function DesktopScreen() {
               avatarColor={entry.avatarColor}
               tasks={entry.tasks}
               initialExpanded={true}
+              noHorizontalMargin={true}
             />
           </div>
         ))}
