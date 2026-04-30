@@ -2560,6 +2560,7 @@ function DashboardScreen({
     <div id="dashboard-screen" style={{ width, height, position: "relative", fontFamily: "var(--font-inter)", overflow: "hidden" }}>
       <style>{`
         #scroll-content::-webkit-scrollbar { display: none; }
+        #desktop-sidebar::-webkit-scrollbar { display: none; }
         @keyframes tdSlideInRight  { from { transform: translateX(100%); } to { transform: translateX(0); } }
         @keyframes tdSlideInLeft   { from { transform: translateX(-100%); } to { transform: translateX(0); } }
         @keyframes tdSlideOutLeft  { from { transform: translateX(0); } to { transform: translateX(-100%); } }
@@ -2704,13 +2705,14 @@ function DesktopScreen() {
       overflow: "hidden",
     }}>
       {/* Sidebar — 20% */}
-      <div style={{
+      <div id="desktop-sidebar" style={{
         width: "20%", flexShrink: 0,
         background: "#fff",
         borderRight: "1px solid rgba(0,0,0,0.07)",
         overflowY: "auto",
         padding: "12px 0 24px",
-      }}>
+        scrollbarWidth: "none",
+      } as React.CSSProperties}>
         {(DAY_CONTENT[2].planned.filter((e) => e.kind === "timed") as TimedEntry[]).map((entry) => (
           <div key={entry.id} style={{ marginBottom: 8 }}>
             <TimedCard
