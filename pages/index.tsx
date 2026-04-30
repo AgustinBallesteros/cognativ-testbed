@@ -3146,9 +3146,10 @@ function DesktopCalendarContent({
 // ─── Desktop screen ───────────────────────────────────────────────────────────
 
 function DesktopScreen() {
-  const [activeDay, setActiveDay] = useState<number>(CURRENT_DAY);
-  const [view,      setView]      = useState<CalendarView>("day");
-  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [activeDay,     setActiveDay]     = useState<number>(CURRENT_DAY);
+  const [view,          setView]          = useState<CalendarView>("day");
+  const [focusedId,     setFocusedId]     = useState<string | null>(null);
+  const [transitionDir, setTransitionDir] = useState<"left" | "right">("left");
 
   // ── Shared subtask progress (sidebar TimedCard → timeline card) ───────────
   const [timedProgress, setTimedProgress] =
@@ -3156,12 +3157,17 @@ function DesktopScreen() {
   const [forceSignals, setForceSignals] =
     useState<Record<string, ForceSignal>>({});
 
+  // Reset shared state + focus when the day changes
+  useEffect(() => {
+    setTimedProgress({});
+    setForceSignals({});
+    setFocusedId(null);
+  }, [activeDay]);
+
   const onTimedProgressChange = useCallback((id: string, done: number, total: number) => {
     setTimedProgress((prev) => ({ ...prev, [id]: { done, total } }));
   }, []);
 
-  // Clicking the timeline checkbox fires a force-signal to the sidebar TimedCard,
-  // which then updates its subtasks and reports back via onProgressChange.
   const onTimelineCheckbox = useCallback((id: string) => {
     const cur     = timedProgress[id];
     const allDone = cur ? cur.done === cur.total && cur.total > 0 : false;
@@ -3180,10 +3186,14 @@ function DesktopScreen() {
 
   const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
   const navigateDay = (delta: number) => {
+    setTransitionDir(delta > 0 ? "left" : "right");
     const idx    = DAY_IDS.indexOf(activeDay);
     const newIdx = Math.max(0, Math.min(DAY_IDS.length - 1, idx + delta));
     setActiveDay(DAY_IDS[newIdx]);
   };
+
+  const sidebarEntries = (DAY_CONTENT[activeDay]?.planned ?? [])
+    .filter((e): e is TimedEntry => e.kind === "timed");
 
   return (
     <div style={{
@@ -3195,6 +3205,16 @@ function DesktopScreen() {
       <style>{`
         #desktop-sidebar::-webkit-scrollbar          { display: none; }
         #desktop-calendar-scroll::-webkit-scrollbar  { display: none; }
+        @keyframes dtSlideInRight {
+          from { transform: translateX(28px); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
+        }
+        @keyframes dtSlideInLeft {
+          from { transform: translateX(-28px); opacity: 0; }
+          to   { transform: translateX(0);     opacity: 1; }
+        }
+        .dt-slide-left  { animation: dtSlideInRight 220ms cubic-bezier(0.25,0.46,0.45,0.94) both; }
+        .dt-slide-right { animation: dtSlideInLeft  220ms cubic-bezier(0.25,0.46,0.45,0.94) both; }
       `}</style>
 
       {/* ── Sidebar — 20% ── */}
@@ -3206,36 +3226,40 @@ function DesktopScreen() {
           background: "#fff",
           borderRight: "1px solid rgba(0,0,0,0.07)",
           overflowY: "auto",
+          overflowX: "hidden",
           padding: "12px 8px 24px",
           scrollbarWidth: "none",
         } as React.CSSProperties}
       >
-        {(DAY_CONTENT[2].planned.filter((e) => e.kind === "timed") as TimedEntry[]).map((entry) => (
-          <div
-            key={entry.id}
-            ref={(el) => { cardRefs.current[entry.id] = el; }}
-            onClick={(e) => { e.stopPropagation(); setFocusedId(entry.id); }}
-            style={{
-              marginBottom: 8,
-              borderRadius: 14,
-              outline: focusedId === entry.id ? `2px solid ${BLUE}` : "2px solid transparent",
-              transition: `outline-color ${MS.dFast} ${MS.eOut}`,
-              cursor: "pointer",
-            }}
-          >
-            <TimedCard
-              id={entry.id}
-              title={entry.title}
-              timeRange={entry.timeRange}
-              avatarColor={entry.avatarColor}
-              tasks={entry.tasks}
-              initialExpanded={true}
-              noHorizontalMargin={true}
-              onProgressChange={onTimedProgressChange}
-              forceSignal={forceSignals[entry.id]}
-            />
-          </div>
-        ))}
+        {/* Keyed wrapper drives the slide animation on day change */}
+        <div key={activeDay} className={`dt-slide-${transitionDir}`}>
+          {sidebarEntries.map((entry) => (
+            <div
+              key={entry.id}
+              ref={(el) => { cardRefs.current[entry.id] = el; }}
+              onClick={(e) => { e.stopPropagation(); setFocusedId(entry.id); }}
+              style={{
+                marginBottom: 8,
+                borderRadius: 14,
+                outline: focusedId === entry.id ? `2px solid ${BLUE}` : "2px solid transparent",
+                transition: `outline-color ${MS.dFast} ${MS.eOut}`,
+                cursor: "pointer",
+              }}
+            >
+              <TimedCard
+                id={entry.id}
+                title={entry.title}
+                timeRange={entry.timeRange}
+                avatarColor={entry.avatarColor}
+                tasks={entry.tasks}
+                initialExpanded={true}
+                noHorizontalMargin={true}
+                onProgressChange={onTimedProgressChange}
+                forceSignal={forceSignals[entry.id]}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Main content — 80% ── */}
@@ -3253,13 +3277,20 @@ function DesktopScreen() {
           onNextDay={() => navigateDay(1)}
         />
 
-        <DesktopCalendarContent
-          activeDay={activeDay}
-          focusedId={focusedId}
-          onFocusEntry={setFocusedId}
-          timedProgress={timedProgress}
-          onTimelineCheckbox={onTimelineCheckbox}
-        />
+        {/* Keyed wrapper drives the slide animation on day change */}
+        <div
+          key={activeDay}
+          className={`dt-slide-${transitionDir}`}
+          style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}
+        >
+          <DesktopCalendarContent
+            activeDay={activeDay}
+            focusedId={focusedId}
+            onFocusEntry={setFocusedId}
+            timedProgress={timedProgress}
+            onTimelineCheckbox={onTimelineCheckbox}
+          />
+        </div>
 
         {/* FAB */}
         <div
