@@ -2894,7 +2894,7 @@ function buildTimeLayout(entries: TimedEntry[]): TimeItem[] {
 const DESKTOP_TL_START = 7;   // 7 AM
 const DESKTOP_TL_END   = 20;  // 8 PM
 const DESKTOP_PX_PER_H = 100; // px per hour
-const DESKTOP_LABEL_W  = 64;  // px width of time-label column
+const DESKTOP_LABEL_W  = 80;  // px width of time-label column
 
 function DesktopTimelineCard({
   entry, startMin, endMin, colIndex, colCount,
@@ -2912,6 +2912,14 @@ function DesktopTimelineCard({
   const leftPct   = colIndex * widthPct;
   const taskCount = entry.tasks?.length ?? 0;
 
+  // Progress bar — mirrors TaskCard's vertical track
+  const total    = entry.tasks?.length ?? 0;
+  const doneCount = total > 0
+    ? Object.values(entry.initialDoneMap ?? {}).filter(Boolean).length
+    : 0;
+  const trackH = total > 0 ? 46 : 36;
+  const fillH  = Math.round(trackH * (total > 0 ? doneCount / total : 0));
+
   return (
     <div
       onClick={() => onFocus(entry.id)}
@@ -2928,28 +2936,41 @@ function DesktopTimelineCard({
         cursor: "pointer",
         display: "flex",
         flexDirection: "row",
+        alignItems: "center",
         transition: `box-shadow ${MS.dFast} ${MS.eOut}`,
         userSelect: "none",
       }}
     >
-      {/* Accent bar */}
-      <div style={{ width: 4, flexShrink: 0, background: entry.avatarColor }} />
-      {/* Text */}
-      <div style={{
-        flex: 1, paddingLeft: 10, paddingTop: 8, paddingBottom: 8, paddingRight: 4,
-        display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0,
-      }}>
-        <div className="font-bold" style={{ fontSize: 13, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {entry.title}
+      {/* Content area — position:relative so progress track can anchor */}
+      <div style={{ flex: 1, height: "100%", position: "relative", display: "flex", alignItems: "center", paddingRight: 4, minWidth: 0 }}>
+        {/* Vertical progress track */}
+        <div style={{
+          position: "absolute", left: 12,
+          top: "50%", transform: "translateY(-50%)",
+          width: 4, height: trackH, borderRadius: 2,
+          background: `color-mix(in srgb, ${entry.avatarColor} 25%, transparent)`,
+          overflow: "hidden",
+        }}>
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            height: `${fillH}px`, borderRadius: 2,
+            background: entry.avatarColor,
+          }} />
         </div>
-        {taskCount > 0 && (
-          <div className="flex items-center gap-1" style={{ marginTop: 2 }}>
-            <span style={{ fontSize: 11, color: "#888" }}>Task list ({taskCount})</span>
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M2 4l3 3 3-3" stroke="#bbb" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        {/* Text */}
+        <div style={{ marginLeft: 24, minWidth: 0 }}>
+          <div className="font-bold" style={{ fontSize: 13, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {entry.title}
           </div>
-        )}
+          {taskCount > 0 && (
+            <div className="flex items-center gap-1" style={{ marginTop: 2 }}>
+              <span style={{ fontSize: 11, color: "#888" }}>Task list ({taskCount})</span>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2 4l3 3 3-3" stroke="#bbb" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          )}
+        </div>
       </div>
       {/* Checkbox */}
       <div style={{ display: "flex", alignItems: "center", paddingRight: 12, flexShrink: 0 }}>
@@ -2995,74 +3016,89 @@ function DesktopCalendarContent({
   const totalH = hours.length * DESKTOP_PX_PER_H;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#fff" }}>
+    /* Outer shell — margin gap around the rounded frame */
+    <div style={{ flex: 1, overflow: "hidden", background: "#F5F5F5", padding: "0 12px 12px 12px" }}>
+      {/* Rounded frame */}
+      <div style={{
+        height: "100%",
+        display: "flex", flexDirection: "column",
+        background: "#fff",
+        borderRadius: 16,
+        border: "1px solid rgba(0,0,0,0.07)",
+        overflow: "hidden",
+      }}>
 
-      {/* ── Anytime ── */}
-      <div style={{ flexShrink: 0, padding: "12px 0 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-        <div className="flex items-center gap-2" style={{ marginBottom: 10, paddingLeft: 20 }}>
-          <span className="font-medium" style={{ fontSize: 14, color: "#666" }}>Anytime</span>
-          <DueTodayBadge count={dueToday} />
-        </div>
-        <div className="flex flex-col gap-2">
-          {day?.anytime.map((c) => (
-            <TaskCard
-              key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
-              tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
-              initialChecked={c.initialChecked}
-              onProgressChange={onProgressChange}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* ── Scrollable timeline ── */}
-      <div
-        id="desktop-timeline"
-        style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}
-      >
-        <div style={{ position: "relative", height: totalH }}>
-
-          {/* Hour grid lines + labels */}
-          {hours.flatMap((hour) => {
-            const y     = (hour - DESKTOP_TL_START) * DESKTOP_PX_PER_H;
-            const label = hour < 12
-              ? `${hour} AM`
-              : hour === 12 ? "12 PM" : `${hour - 12} PM`;
-            return [
-              <div
-                key={`line-${hour}`}
-                style={{ position: "absolute", top: y, left: DESKTOP_LABEL_W, right: 12, height: 1, background: "rgba(0,0,0,0.07)" }}
-              />,
-              <div
-                key={`half-${hour}`}
-                style={{ position: "absolute", top: y + DESKTOP_PX_PER_H / 2, left: DESKTOP_LABEL_W, right: 12, height: 1, background: "rgba(0,0,0,0.035)" }}
-              />,
-              <div
-                key={`lbl-${hour}`}
-                style={{ position: "absolute", top: y + 5, left: 10, fontSize: 11, color: "#aaa", fontWeight: 500, userSelect: "none" }}
-              >
-                {label}
-              </div>,
-            ];
-          })}
-
-          {/* Task cards — positioned relative to label column right edge */}
-          <div style={{ position: "absolute", top: 0, left: DESKTOP_LABEL_W, right: 0, bottom: 0 }}>
-            {timeLayout.map(({ entry, startMin, endMin, colIndex, colCount }) => (
-              <DesktopTimelineCard
-                key={entry.id}
-                entry={entry}
-                startMin={startMin}
-                endMin={endMin}
-                colIndex={colIndex}
-                colCount={colCount}
-                focused={focusedId === entry.id}
-                onFocus={onFocusEntry}
+        {/* ── Anytime ── */}
+        <div style={{ flexShrink: 0, padding: "12px 0 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+          <div className="flex items-center gap-2" style={{ marginBottom: 10, paddingLeft: 20 }}>
+            <span className="font-medium" style={{ fontSize: 14, color: "#666" }}>Anytime</span>
+            <DueTodayBadge count={dueToday} />
+          </div>
+          <div className="flex flex-col gap-2">
+            {day?.anytime.map((c) => (
+              <TaskCard
+                key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
+                tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
+                initialChecked={c.initialChecked}
+                onProgressChange={onProgressChange}
               />
             ))}
           </div>
-
         </div>
+
+        {/* ── Scrollable timeline ── */}
+        <div
+          id="desktop-timeline"
+          style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}
+        >
+          <div style={{ position: "relative", height: totalH }}>
+
+            {/* Label column background */}
+            <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: DESKTOP_LABEL_W, background: "#FAFAFA", zIndex: 0 }} />
+
+            {/* Hour grid lines + labels */}
+            {hours.flatMap((hour) => {
+              const y     = (hour - DESKTOP_TL_START) * DESKTOP_PX_PER_H;
+              const label = hour < 12
+                ? `${hour} AM`
+                : hour === 12 ? "12 PM" : `${hour - 12} PM`;
+              return [
+                <div
+                  key={`line-${hour}`}
+                  style={{ position: "absolute", top: y, left: DESKTOP_LABEL_W, right: 0, height: 1, background: "rgba(0,0,0,0.07)", zIndex: 1 }}
+                />,
+                <div
+                  key={`half-${hour}`}
+                  style={{ position: "absolute", top: y + DESKTOP_PX_PER_H / 2, left: DESKTOP_LABEL_W, right: 0, height: 1, background: "rgba(0,0,0,0.04)", zIndex: 1 }}
+                />,
+                <div
+                  key={`lbl-${hour}`}
+                  style={{ position: "absolute", top: y + 5, left: 10, fontSize: 11, color: "#aaa", fontWeight: 500, userSelect: "none", zIndex: 1 }}
+                >
+                  {label}
+                </div>,
+              ];
+            })}
+
+            {/* Task cards */}
+            <div style={{ position: "absolute", top: 0, left: DESKTOP_LABEL_W, right: 12, bottom: 0, zIndex: 2 }}>
+              {timeLayout.map(({ entry, startMin, endMin, colIndex, colCount }) => (
+                <DesktopTimelineCard
+                  key={entry.id}
+                  entry={entry}
+                  startMin={startMin}
+                  endMin={endMin}
+                  colIndex={colIndex}
+                  colCount={colCount}
+                  focused={focusedId === entry.id}
+                  onFocus={onFocusEntry}
+                />
+              ))}
+            </div>
+
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -3107,7 +3143,7 @@ function DesktopScreen() {
         background: "#fff",
         borderRight: "1px solid rgba(0,0,0,0.07)",
         overflowY: "auto",
-        padding: "12px 0 24px",
+        padding: "12px 8px 24px",
         scrollbarWidth: "none",
       } as React.CSSProperties}>
         {(DAY_CONTENT[2].planned.filter((e) => e.kind === "timed") as TimedEntry[]).map((entry) => (
