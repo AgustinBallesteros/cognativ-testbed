@@ -3256,50 +3256,18 @@ function DesktopSchedule({
 // ─── Desktop screen ───────────────────────────────────────────────────────────
 
 function DesktopScreen() {
-  const [activeDay,      setActiveDay]      = useState<number>(CURRENT_DAY);
-  const [view,           setView]           = useState<CalendarView>("day");
-  const [selectedCardId, setSelectedCardId] = useState<string>("card-math-prep");
-
-  const day = DAY_CONTENT[activeDay];
-
-  // Selected task: search anytime first, then planned
-  const selectedTask: TaskEntry | null =
-    day?.anytime.find((t) => t.id === selectedCardId) ?? null;
-
-  const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
-  const navigateDay = (delta: number) => {
-    const idx    = DAY_IDS.indexOf(activeDay);
-    const newIdx = Math.max(0, Math.min(DAY_IDS.length - 1, idx + delta));
-    setActiveDay(DAY_IDS[newIdx]);
-    setSelectedCardId("");
-  };
-
   return (
     <div style={{
       width: "100%", height: "100%",
       display: "flex", flexDirection: "row",
-      background: "#fff",
       fontFamily: "var(--font-inter)",
       overflow: "hidden",
     }}>
-      {/* Sidebar */}
-      <DesktopSidebarPanel task={selectedTask} />
+      {/* Sidebar — 20% */}
+      <div style={{ width: "20%", height: "100%", background: "#F5F5F5", flexShrink: 0 }} />
 
-      {/* Main content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <DesktopHeader
-          activeDay={activeDay}
-          view={view}
-          onViewChange={setView}
-          onPrevDay={() => navigateDay(-1)}
-          onNextDay={() => navigateDay(1)}
-        />
-        <DesktopSchedule
-          day={day}
-          selectedCardId={selectedCardId}
-          onCardSelect={setSelectedCardId}
-        />
-      </div>
+      {/* Main content — 80% */}
+      <div style={{ width: "80%", height: "100%", background: "#FFFFFF" }} />
     </div>
   );
 }
