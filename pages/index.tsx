@@ -2921,7 +2921,7 @@ function DesktopTimelineCard({
 
   return (
     <div
-      onClick={() => onFocus(entry.id)}
+      onClick={(e) => { e.stopPropagation(); onFocus(entry.id); }}
       style={{
         position: "absolute",
         top,
@@ -2989,7 +2989,7 @@ function DesktopCalendarContent({
 }: {
   activeDay: number;
   focusedId: string | null;
-  onFocusEntry: (id: string) => void;
+  onFocusEntry: (id: string | null) => void;
   timedProgress: Record<string, { done: number; total: number }>;
   onTimelineCheckbox: (id: string) => void;
 }) {
@@ -3067,6 +3067,7 @@ function DesktopCalendarContent({
         {/* ── Scrollable timeline ── */}
         <div
           id="desktop-timeline"
+          onClick={() => onFocusEntry(null)}
           style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}
         >
           <div style={{ position: "relative", height: totalH }}>
@@ -3196,23 +3197,29 @@ function DesktopScreen() {
       `}</style>
 
       {/* ── Sidebar — 20% ── */}
-      <div id="desktop-sidebar" style={{
-        width: "20%", flexShrink: 0,
-        background: "#fff",
-        borderRight: "1px solid rgba(0,0,0,0.07)",
-        overflowY: "auto",
-        padding: "12px 8px 24px",
-        scrollbarWidth: "none",
-      } as React.CSSProperties}>
+      <div
+        id="desktop-sidebar"
+        onClick={() => setFocusedId(null)}
+        style={{
+          width: "20%", flexShrink: 0,
+          background: "#fff",
+          borderRight: "1px solid rgba(0,0,0,0.07)",
+          overflowY: "auto",
+          padding: "12px 8px 24px",
+          scrollbarWidth: "none",
+        } as React.CSSProperties}
+      >
         {(DAY_CONTENT[2].planned.filter((e) => e.kind === "timed") as TimedEntry[]).map((entry) => (
           <div
             key={entry.id}
             ref={(el) => { cardRefs.current[entry.id] = el; }}
+            onClick={(e) => { e.stopPropagation(); setFocusedId(entry.id); }}
             style={{
               marginBottom: 8,
               borderRadius: 14,
               outline: focusedId === entry.id ? `2px solid ${BLUE}` : "2px solid transparent",
               transition: `outline-color ${MS.dFast} ${MS.eOut}`,
+              cursor: "pointer",
             }}
           >
             <TimedCard
