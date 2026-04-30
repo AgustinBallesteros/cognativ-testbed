@@ -572,7 +572,7 @@ function TaskCard({
       {total > 0 && (
         <div
           style={{
-            maxHeight: expanded ? `${tasks.length * 56 + 52}px` : "0px",
+            maxHeight: expanded ? `${tasks.length * 120 + 60}px` : "0px",
             overflow: "hidden",
             transition: expanded
               ? `max-height ${MS.dExpand} ${MS.eOut}`
@@ -818,7 +818,7 @@ function TimedCard({
       {/* ── Expanded subtask list ── */}
       <div
         style={{
-          maxHeight: expanded ? `${tasks.length * 56 + 52}px` : "0px",
+          maxHeight: expanded ? `${tasks.length * 120 + 60}px` : "0px",
           overflow: "hidden",
           transition: expanded
             ? `max-height ${MS.dExpand} ${MS.eOut}`
