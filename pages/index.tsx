@@ -3092,12 +3092,17 @@ function DesktopCalendarContent({
             </div>
             <div className="flex flex-col gap-2" style={{ paddingLeft: DESKTOP_LABEL_W }}>
               {day?.anytime.map((c) => (
-                <TaskCard
-                  key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
-                  tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
-                  initialChecked={c.initialChecked}
-                  onProgressChange={onProgressChange}
-                />
+                <div
+                  key={c.id}
+                  onClick={(e) => { e.stopPropagation(); onSelectEntry(c.id); }}
+                >
+                  <TaskCard
+                    id={c.id} title={c.title} accentColor={c.accentColor}
+                    tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
+                    initialChecked={c.initialChecked}
+                    onProgressChange={onProgressChange}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -3206,8 +3211,8 @@ function DesktopDayColumn({
   );
   const ringProgress = rTotal > 0 ? rDone / rTotal : 0;
 
-  const anytime      = day?.anytime ?? [];
-  const timedEntries = (day?.planned ?? []).filter((e): e is TimedEntry => e.kind === "timed");
+  const anytime  = day?.anytime ?? [];
+  const planned  = day?.planned ?? [];
 
   return (
     <div style={{
@@ -3242,36 +3247,58 @@ function DesktopDayColumn({
           <>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#888" }}>Anytime</span>
             {anytime.map((c) => (
-              <TaskCard
-                key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
-                tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
-                initialChecked={c.initialChecked}
-                onProgressChange={onProgressChange}
-              />
-            ))}
-          </>
-        )}
-        {timedEntries.length > 0 && (
-          <>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#888", marginTop: anytime.length > 0 ? 4 : 0 }}>Scheduled</span>
-            {timedEntries.map((entry) => (
               <div
-                key={entry.id}
-                onClick={(e) => { e.stopPropagation(); onSelectEntry(entry.id); }}
-                style={{ cursor: "pointer" }}
+                key={c.id}
+                onClick={(e) => { e.stopPropagation(); onSelectEntry(c.id); }}
               >
-                <TimedCard
-                  id={entry.id}
-                  title={entry.title}
-                  timeRange={entry.timeRange}
-                  avatarColor={entry.avatarColor}
-                  tasks={entry.tasks}
-                  initialExpanded={false}
-                  noHorizontalMargin={true}
+                <TaskCard
+                  id={c.id} title={c.title} accentColor={c.accentColor}
+                  tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
+                  initialChecked={c.initialChecked}
                   onProgressChange={onProgressChange}
                 />
               </div>
             ))}
+          </>
+        )}
+        {planned.length > 0 && (
+          <>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#888", marginTop: anytime.length > 0 ? 4 : 0 }}>Scheduled</span>
+            {planned.map((entry) => {
+              if (entry.kind === "gap") {
+                return (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-center"
+                    style={{
+                      height: 22, borderRadius: 6,
+                      backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 6px)",
+                      backgroundColor: "#F5F5F5",
+                    }}
+                  >
+                    <span style={{ fontSize: 9, color: "#aaa" }}>{entry.label}</span>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={entry.id}
+                  onClick={(e) => { e.stopPropagation(); onSelectEntry(entry.id); }}
+                  style={{ cursor: "pointer" }}
+                >
+                  <TimedCard
+                    id={entry.id}
+                    title={entry.title}
+                    timeRange={entry.timeRange}
+                    avatarColor={entry.avatarColor}
+                    tasks={entry.tasks}
+                    initialExpanded={false}
+                    noHorizontalMargin={true}
+                    onProgressChange={onProgressChange}
+                  />
+                </div>
+              );
+            })}
           </>
         )}
       </div>
@@ -3426,15 +3453,25 @@ function DesktopScreen() {
   const allTimedEntries = (DAY_CONTENT[activeDay]?.planned ?? [])
     .filter((e): e is TimedEntry => e.kind === "timed");
 
-  // Time-based auto-show only in day view; 3-day shows selected task or empty
-  const sidebarEntries = selectedId !== null
-    ? allTimedEntries.filter((e) => e.id === selectedId)
-    : view === "day"
-      ? allTimedEntries.filter((e) => {
-          const { startMin: s, endMin: en } = parseTimeRange(e.timeRange);
-          return nowMin >= s && nowMin < en;
-        })
-      : [];
+  // Find the selected entry across all days — can be anytime or timed
+  const selectedFound = selectedId ? (() => {
+    for (const dayId of Object.keys(DAY_CONTENT).map(Number)) {
+      const day = DAY_CONTENT[dayId];
+      const a = day?.anytime?.find((e) => e.id === selectedId);
+      if (a) return { kind: "anytime" as const, entry: a, dayId };
+      const t = day?.planned?.find((e): e is TimedEntry => e.kind === "timed" && e.id === selectedId);
+      if (t) return { kind: "timed" as const, entry: t, dayId };
+    }
+    return null;
+  })() : null;
+
+  // Auto-show running timed tasks — only in day view with no manual selection
+  const autoTimedEntries = !selectedId && view === "day"
+    ? allTimedEntries.filter((e) => {
+        const { startMin: s, endMin: en } = parseTimeRange(e.timeRange);
+        return nowMin >= s && nowMin < en;
+      })
+    : [];
 
   return (
     <div style={{
@@ -3482,21 +3519,49 @@ function DesktopScreen() {
         } as React.CSSProperties}
       >
         <div key={activeDay} className={`dt-slide-${transitionDir}`}>
-          {sidebarEntries.map((entry) => (
-            <div key={entry.id} style={{ marginBottom: 8 }}>
-              <TimedCard
-                id={entry.id}
-                title={entry.title}
-                timeRange={entry.timeRange}
-                avatarColor={entry.avatarColor}
-                tasks={entry.tasks}
-                initialExpanded={true}
-                noHorizontalMargin={true}
-                onProgressChange={onTimedProgressChange}
-                forceSignal={forceSignals[entry.id]}
-              />
+          {selectedFound ? (
+            <div style={{ marginBottom: 8 }}>
+              {selectedFound.kind === "anytime" ? (
+                <TaskCard
+                  id={selectedFound.entry.id}
+                  title={selectedFound.entry.title}
+                  accentColor={selectedFound.entry.accentColor}
+                  tasks={selectedFound.entry.tasks ?? []}
+                  initialDoneMap={selectedFound.entry.initialDoneMap}
+                  initialChecked={selectedFound.entry.initialChecked}
+                  onProgressChange={dtProgressHandlers[selectedFound.dayId]}
+                />
+              ) : (
+                <TimedCard
+                  id={selectedFound.entry.id}
+                  title={selectedFound.entry.title}
+                  timeRange={selectedFound.entry.timeRange}
+                  avatarColor={selectedFound.entry.avatarColor}
+                  tasks={selectedFound.entry.tasks}
+                  initialExpanded={true}
+                  noHorizontalMargin={true}
+                  onProgressChange={dtProgressHandlers[selectedFound.dayId]}
+                  forceSignal={forceSignals[selectedFound.entry.id]}
+                />
+              )}
             </div>
-          ))}
+          ) : (
+            autoTimedEntries.map((entry) => (
+              <div key={entry.id} style={{ marginBottom: 8 }}>
+                <TimedCard
+                  id={entry.id}
+                  title={entry.title}
+                  timeRange={entry.timeRange}
+                  avatarColor={entry.avatarColor}
+                  tasks={entry.tasks}
+                  initialExpanded={true}
+                  noHorizontalMargin={true}
+                  onProgressChange={onTimedProgressChange}
+                  forceSignal={forceSignals[entry.id]}
+                />
+              </div>
+            ))
+          )}
         </div>
       </div>
 
