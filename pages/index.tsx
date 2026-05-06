@@ -216,7 +216,7 @@ function Header({
               transition: `opacity ${MS.dElement} ${MS.eOut}, transform ${MS.dElement} ${MS.eOut}`,
             }}
           >
-            {CALENDAR_VIEWS.map((v) => {
+            {CALENDAR_VIEWS.filter((v) => v.id !== "week").map((v) => {
               const isSelected = v.id === view;
               return (
                 <div
