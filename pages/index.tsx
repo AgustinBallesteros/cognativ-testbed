@@ -33,7 +33,7 @@ const MS = {
 } as const;
 
 // Day that is "today" — stays highlighted regardless of which day is active
-const CURRENT_DAY = 2; // Monday
+const CURRENT_DAY = 6; // Monday
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -309,15 +309,15 @@ function DayRing({ progress, W = 44, H = 52, RX = 12 }: { progress: number; W?: 
   );
 }
 
-// April 2026: Wed=1, Thu=2, Fri=3, Sat=4, Sun=5, Mon=6, Tue=7
+// April 2026: id = April date number
 const WEEK_DAYS = [
-  { label: "W", fullLabel: "Wed", num: "1",  id: 4  },  // April 1
-  { label: "T", fullLabel: "Thu", num: "2",  id: 5  },  // April 2
-  { label: "F", fullLabel: "Fri", num: "3",  id: 6  },  // April 3
-  { label: "S", fullLabel: "Sat", num: "4",  id: 7  },  // April 4
-  { label: "S", fullLabel: "Sun", num: "5",  id: 1  },  // April 5
-  { label: "M", fullLabel: "Mon", num: "6",  id: 2  },  // April 6 ← CURRENT_DAY
-  { label: "T", fullLabel: "Tue", num: "7",  id: 3  },  // April 7
+  { label: "W", fullLabel: "Wed", num: "1",  id: 1  },  // April 1
+  { label: "T", fullLabel: "Thu", num: "2",  id: 2  },  // April 2
+  { label: "F", fullLabel: "Fri", num: "3",  id: 3  },  // April 3
+  { label: "S", fullLabel: "Sat", num: "4",  id: 4  },  // April 4
+  { label: "S", fullLabel: "Sun", num: "5",  id: 5  },  // April 5
+  { label: "M", fullLabel: "Mon", num: "6",  id: 6  },  // April 6 ← CURRENT_DAY
+  { label: "T", fullLabel: "Tue", num: "7",  id: 7  },  // April 7
   { label: "W", fullLabel: "Wed", num: "8",  id: 8  },  // April 8
   { label: "T", fullLabel: "Thu", num: "9",  id: 9  },  // April 9
   { label: "F", fullLabel: "Fri", num: "10", id: 10 },  // April 10
@@ -1067,7 +1067,7 @@ type PlannedEntry = TimedEntry | GapEntry;
 const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[] }> = {
   // ── Sunday ──────────────────────────────────────────────────────────────────
   // Pre-seeded ~75% (11/15 done)
-  1: {
+  5: {
     anytime: [
       {
         kind: "task", id: "sun-journal", title: "Journal morning thoughts", accentColor: "#A78BFA",
@@ -1120,7 +1120,7 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
   },
 
   // ── Monday (current day) ─────────────────────────────────────────────────────
-  2: {
+  6: {
     anytime: [
       {
         kind: "task", id: "card-biology-study", title: "Biology study", accentColor: "#7BC875",
@@ -1204,7 +1204,7 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
   },
 
   // ── Tuesday ──────────────────────────────────────────────────────────────────
-  3: {
+  7: {
     anytime: [
       {
         kind: "task", id: "tue-chem-study", title: "Chemistry study", accentColor: "#60C6E8",
@@ -1255,7 +1255,7 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
   },
 
   // ── Wednesday ────────────────────────────────────────────────────────────────
-  4: {
+  1: {
     anytime: [
       {
         kind: "task", id: "wed-history", title: "History reading", accentColor: "#C084FC",
@@ -1296,7 +1296,7 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
   },
 
   // ── Thursday ─────────────────────────────────────────────────────────────────
-  5: {
+  2: {
     anytime: [
       {
         kind: "task", id: "thu-physics", title: "Physics problem set", accentColor: "#38BDF8",
@@ -1338,7 +1338,7 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
   },
 
   // ── Friday ───────────────────────────────────────────────────────────────────
-  6: {
+  3: {
     anytime: [
       {
         kind: "task", id: "fri-review", title: "Review week notes", accentColor: "#4ADE80",
@@ -1383,7 +1383,7 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
   },
 
   // ── Saturday ─────────────────────────────────────────────────────────────────
-  7: {
+  4: {
     anytime: [
       {
         kind: "task", id: "sat-clean", title: "Deep clean room", accentColor: "#94A3B8",
@@ -2148,7 +2148,7 @@ const MONTH_NAMES = [
   "July","August","September","October","November","December",
 ];
 const FULL_DAY_NAMES = [
-  "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
+  "Wednesday","Thursday","Friday","Saturday","Sunday","Monday","Tuesday",
   "Wednesday","Thursday","Friday",
 ];
 
@@ -2169,13 +2169,13 @@ function getMonthInfo(offset: number) {
 }
 
 // April 1, 2026 = Wednesday (JS getDay() = 3).
-// Our week IDs: 1=Sun … 7=Sat. Mapping April dates 1-7 to week day IDs:
-//   Apr 1(Wed)→4, 2(Thu)→5, 3(Fri)→6, 4(Sat)→7, 5(Sun)→1, 6(Mon)→2, 7(Tue)→3
+// Our week IDs: id = April date number (1-10). Direct 1:1 mapping for 1-7.
+//   Apr 1(Wed)→1, 2(Thu)→2, 3(Fri)→3, 4(Sat)→4, 5(Sun)→5, 6(Mon)→6, 7(Tue)→7
 const APRIL_START_DOW = 3; // Wednesday
 const APRIL_DATE_TO_DAYID: Record<number, number> = {
-  1: 4, 2: 5, 3: 6, 4: 7, 5: 1, 6: 2, 7: 3,
+  1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7,
 };
-// CURRENT_DAY=2 (Monday) corresponds to April 6 in our prototype month
+// CURRENT_DAY=6 (Monday) corresponds to April 6 in our prototype month
 const MONTH_TODAY_DATE = 6;
 
 function MonthCellRing({ progress, size = 26 }: { progress: number; size?: number }) {
@@ -2623,8 +2623,8 @@ function DashboardScreen({
   // Calendar view state (lifted from Header)
   const [view, setView] = useState<CalendarView>("day");
 
-  // 3-day window: first day id in the window (1–5)
-  const [threeDayStart, setThreeDayStart] = useState<number>(1);
+  // 3-day window: first day id in the window (1–8)
+  const [threeDayStart, setThreeDayStart] = useState<number>(4);
 
   // Month view: offset from base month (April 2026 = 0)
   const [monthOffset, setMonthOffset] = useState(0);
@@ -2643,7 +2643,7 @@ function DashboardScreen({
   }, []);
 
   // Active day — default Monday
-  const [activeDay, setActiveDay] = useState<number>(2);
+  const [activeDay, setActiveDay] = useState<number>(6);
 
   // Per-day progress maps — never cleared, so card state survives day switches.
   // Keyed by day id → card id → { done, total }.
@@ -2762,8 +2762,8 @@ function DashboardScreen({
           onViewChange={switchView}
           showTodayBtn={showTodayBtn}
           onTodayJump={() => {
-            // Page 0 (start=1) contains CURRENT_DAY=2
-            setThreeDayStart(1);
+            // Page start=4 contains CURRENT_DAY=6 (page [4,5,6])
+            setThreeDayStart(4);
           }}
           monthName={view === "month" ? getMonthInfo(monthOffset).monthName : "April"}
           year={view === "month" ? getMonthInfo(monthOffset).yearStr : "2026"}
@@ -3577,7 +3577,7 @@ function DesktopWeekView({
       style={{ display: "flex" }}
       onClick={() => onSelectEntry(null)}
     >
-      {[4, 5, 6, 7, 1, 2, 3].map((dayId, i, arr) => (
+      {[1, 2, 3, 4, 5, 6, 7].map((dayId, i, arr) => (
         <DesktopDayColumn
           key={dayId}
           dayId={dayId}
@@ -3682,8 +3682,8 @@ function DesktopScreen() {
   };
 
   // ── 3-day view ────────────────────────────────────────────────────────────
-  // Page starts: 5→[Apr2,3,4]  1→[Apr5,6,7 current]  8→[Apr8,9,10]
-  const [threeDayStart, setThreeDayStart] = useState<number>(1);
+  // Page starts: 2→[Apr2,3,4]  5→[Apr5,6,7 current]  8→[Apr8,9,10]
+  const [threeDayStart, setThreeDayStart] = useState<number>(5);
   const dtProgressHandlers = useMemo(() => {
     const out: Record<number, (id: string, done: number, total: number) => void> = {};
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((dayId) => {
@@ -3822,17 +3822,17 @@ function DesktopScreen() {
           dateLabel={(view === "3day" || view === "week") ? "April 2026" : undefined}
           showTodayBtn={showTodayBtn}
           onPrevDay={() => {
-            if (view === "3day") setThreeDayStart((s) => s === 1 ? 5 : s === 8 ? 1 : s);
+            if (view === "3day") setThreeDayStart((s) => s === 5 ? 2 : s === 8 ? 5 : s);
             else if (view === "week") { /* single week, no-op */ }
             else navigateDay(-1);
           }}
           onNextDay={() => {
-            if (view === "3day") setThreeDayStart((s) => s === 5 ? 1 : s === 1 ? 8 : s);
+            if (view === "3day") setThreeDayStart((s) => s === 2 ? 5 : s === 5 ? 8 : s);
             else if (view === "week") { /* single week, no-op */ }
             else navigateDay(1);
           }}
           onTodayJump={() => {
-            if (view === "3day") setThreeDayStart(1);
+            if (view === "3day") setThreeDayStart(5);
             else setActiveDay(CURRENT_DAY);
           }}
         />
