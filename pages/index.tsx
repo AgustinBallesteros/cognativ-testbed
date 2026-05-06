@@ -1105,6 +1105,7 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
         ],
         initialDoneMap: { 0: true, 1: true, 2: true }, // 3 / 4
       },
+      { kind: "gap", id: "sun-gap-2hr", label: "2:15hr gap" },
       {
         kind: "timed", id: "sun-grocery", title: "Grocery run",
         timeRange: "11:00AM → 12:00 PM", avatarColor: "#4ADE80",
