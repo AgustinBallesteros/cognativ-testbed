@@ -3429,8 +3429,9 @@ function DesktopScreen() {
   };
 
   // ── 3-day view ────────────────────────────────────────────────────────────
+  // Valid page starts: 1→[1,2,3], 4→[4,5,6], 5→[5,6,7]
   const [threeDayStart, setThreeDayStart] = useState<number>(() =>
-    CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 7
+    CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 5
   );
   const dtProgressHandlers = useMemo(() => {
     const out: Record<number, (id: string, done: number, total: number) => void> = {};
@@ -3579,15 +3580,15 @@ function DesktopScreen() {
           dateLabel={view === "3day" ? "April 2026" : undefined}
           showTodayBtn={showTodayBtn}
           onPrevDay={() => {
-            if (view === "3day") setThreeDayStart((s) => Math.max(1, s - 3));
+            if (view === "3day") setThreeDayStart((s) => s === 5 ? 4 : s === 4 ? 1 : s);
             else navigateDay(-1);
           }}
           onNextDay={() => {
-            if (view === "3day") setThreeDayStart((s) => Math.min(7, s + 3));
+            if (view === "3day") setThreeDayStart((s) => s === 1 ? 4 : s === 4 ? 5 : s);
             else navigateDay(1);
           }}
           onTodayJump={() => {
-            if (view === "3day") setThreeDayStart(CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 7);
+            if (view === "3day") setThreeDayStart(CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 5);
             else {
               setTransitionDir(activeDay > CURRENT_DAY ? "right" : "left");
               setActiveDay(CURRENT_DAY);
