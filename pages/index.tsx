@@ -3507,6 +3507,37 @@ function DesktopThreeDayView({
   );
 }
 
+// ─── Desktop week view ────────────────────────────────────────────────────────
+
+function DesktopWeekView({
+  currentDay, progressMaps, progressHandlers, onSelectEntry,
+}: {
+  currentDay: number;
+  progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+  progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
+  onSelectEntry: (id: string | null) => void;
+}) {
+  return (
+    <div
+      className="dt-dissolve"
+      style={{ display: "flex" }}
+      onClick={() => onSelectEntry(null)}
+    >
+      {[1, 2, 3, 4, 5, 6, 7].map((dayId, i, arr) => (
+        <DesktopDayColumn
+          key={dayId}
+          dayId={dayId}
+          currentDay={currentDay}
+          progressMap={progressMaps[dayId] ?? {}}
+          onProgressChange={progressHandlers[dayId]}
+          onSelectEntry={onSelectEntry}
+          showDivider={i < arr.length - 1}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Desktop screen ───────────────────────────────────────────────────────────
 
 function DesktopScreen() {
@@ -3580,9 +3611,9 @@ function DesktopScreen() {
   }, []);
 
   const dt3Days       = [threeDayStart, threeDayStart + 1, threeDayStart + 2].filter((d) => d >= 1 && d <= 10);
-  const showTodayBtn  = view === "3day"
-    ? !dt3Days.includes(CURRENT_DAY)
-    : activeDay !== CURRENT_DAY;
+  const showTodayBtn  = view === "3day"   ? !dt3Days.includes(CURRENT_DAY)
+                      : view === "week"   ? false
+                      : activeDay !== CURRENT_DAY;
 
   // ── Sidebar entries ────────────────────────────────────────────────────────
   const allTimedEntries = (DAY_CONTENT[activeDay]?.planned ?? [])
@@ -3702,26 +3733,25 @@ function DesktopScreen() {
           activeDay={activeDay}
           view={view}
           onViewChange={setView}
-          dateLabel={view === "3day" ? "April 2026" : undefined}
+          dateLabel={(view === "3day" || view === "week") ? "April 2026" : undefined}
           showTodayBtn={showTodayBtn}
           onPrevDay={() => {
             if (view === "3day") setThreeDayStart((s) => s === 1 ? 5 : s === 8 ? 1 : s);
+            else if (view === "week") { /* single week, no-op */ }
             else navigateDay(-1);
           }}
           onNextDay={() => {
             if (view === "3day") setThreeDayStart((s) => s === 5 ? 1 : s === 1 ? 8 : s);
+            else if (view === "week") { /* single week, no-op */ }
             else navigateDay(1);
           }}
           onTodayJump={() => {
             if (view === "3day") setThreeDayStart(1);
-            else {
-              setActiveDay(CURRENT_DAY);
-            }
+            else setActiveDay(CURRENT_DAY);
           }}
         />
 
         {view === "3day" ? (
-          /* 3-day view scrolls internally */
           <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
             <DesktopThreeDayView
               start={threeDayStart}
@@ -3732,8 +3762,16 @@ function DesktopScreen() {
               onSelectEntry={setSelectedId}
             />
           </div>
+        ) : view === "week" ? (
+          <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
+            <DesktopWeekView
+              currentDay={CURRENT_DAY}
+              progressMaps={allDayProgress}
+              progressHandlers={dtProgressHandlers}
+              onSelectEntry={setSelectedId}
+            />
+          </div>
         ) : (
-          /* Day view with slide animation */
           <div
             key={activeDay}
             className="dt-dissolve"
