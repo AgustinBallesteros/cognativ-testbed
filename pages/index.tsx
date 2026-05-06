@@ -340,7 +340,7 @@ function WeekStrip({
       className="flex items-center justify-between bg-white border-b border-black/5"
       style={{ paddingLeft: 14, paddingRight: 14, paddingTop: 8, paddingBottom: 8 }}
     >
-      {WEEK_DAYS.map((d) => {
+      {WEEK_DAYS.slice(0, 7).map((d) => {
         const isActive  = d.id === activeDay;
         const isToday   = d.id === currentDay;
         const prog      = dayProgressMap[d.id] ?? 0;
