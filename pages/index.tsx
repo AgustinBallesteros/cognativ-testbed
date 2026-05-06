@@ -3482,28 +3482,7 @@ function DesktopThreeDayView({
   progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
   onSelectEntry: (id: string | null) => void;
 }) {
-  const [visibleStart, setVisibleStart] = useState(start);
-  const [exitStart,    setExitStart]    = useState<number | null>(null);
-  const [slideDir,     setSlideDir]     = useState<"left" | "right" | null>(null);
-  const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (start === visibleStart) return;
-    const dir = start > visibleStart ? "left" : "right";
-    if (animTimer.current) clearTimeout(animTimer.current);
-    setExitStart(visibleStart);
-    setSlideDir(dir);
-    setVisibleStart(start);
-    animTimer.current = setTimeout(() => {
-      setExitStart(null);
-      setSlideDir(null);
-    }, TD_ANIM_MS + 20);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start]);
-
-  const getDays      = (s: number) => [s, s + 1, s + 2].filter((d) => d >= 1 && d <= 10);
-  const slideInAnim  = slideDir === "left" ? "tdSlideInRight" : "tdSlideInLeft";
-  const slideOutAnim = slideDir === "left" ? "tdSlideOutLeft" : "tdSlideOutRight";
+  const getDays = (s: number) => [s, s + 1, s + 2].filter((d) => d >= 1 && d <= 10);
 
   const renderColumns = (s: number) =>
     getDays(s).map((dayId, i, arr) => (
@@ -3521,15 +3500,8 @@ function DesktopThreeDayView({
       style={{ position: "relative", overflow: "hidden" }}
       onClick={() => onSelectEntry(null)}
     >
-      {exitStart !== null && slideDir && (
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex",
-          animation: `${slideOutAnim} ${TD_ANIM_MS}ms ${MS.eOut} both` }}>
-          {renderColumns(exitStart)}
-        </div>
-      )}
-      <div key={visibleStart} style={{ display: "flex",
-        animation: slideDir ? `${slideInAnim} ${TD_ANIM_MS}ms ${MS.eOut} both` : undefined }}>
-        {renderColumns(visibleStart)}
+      <div key={start} style={{ display: "flex", animation: `dtDissolve 180ms ease both` }}>
+        {renderColumns(start)}
       </div>
     </div>
   );
@@ -3656,10 +3628,6 @@ function DesktopScreen() {
           to   { opacity: 1; transform: translateY(0);   }
         }
         .dt-header-fade { animation: dtHeaderFade 180ms cubic-bezier(0.25,0.46,0.45,0.94) both; }
-        @keyframes tdSlideInRight  { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        @keyframes tdSlideInLeft   { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-        @keyframes tdSlideOutLeft  { from { transform: translateX(0); } to { transform: translateX(-100%); } }
-        @keyframes tdSlideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
       `}</style>
 
       {/* ── Sidebar — always visible ── */}
