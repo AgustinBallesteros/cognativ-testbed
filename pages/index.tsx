@@ -450,6 +450,7 @@ function TaskCard({
   initialDoneMap,
   initialChecked = false,
   onProgressChange,
+  onDoneMapChange,
   forceSignal,
 }: {
   id: string;
@@ -459,6 +460,7 @@ function TaskCard({
   initialDoneMap?: Record<number, boolean>;
   initialChecked?: boolean;
   onProgressChange?: (id: string, done: number, total: number) => void;
+  onDoneMapChange?: (id: string, doneMap: Record<number, boolean>) => void;
   forceSignal?: ForceSignal;
 }) {
   const [expanded,      setExpanded]      = useState(false);
@@ -491,6 +493,7 @@ function TaskCard({
     } else {
       onProgressChange?.(id, doneCount, total);
     }
+    onDoneMapChange?.(id, doneMap);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doneCount, simpleChecked, total]);
 
@@ -736,6 +739,7 @@ function TimedCard({
   initialExpanded = false,
   noHorizontalMargin = false,
   onProgressChange,
+  onDoneMapChange,
   forceSignal,
 }: {
   id: string;
@@ -747,6 +751,7 @@ function TimedCard({
   initialExpanded?: boolean;
   noHorizontalMargin?: boolean;
   onProgressChange?: (id: string, done: number, total: number) => void;
+  onDoneMapChange?: (id: string, doneMap: Record<number, boolean>) => void;
   forceSignal?: ForceSignal;
 }) {
   const [expanded, setExpanded] = useState(initialExpanded);
@@ -774,6 +779,7 @@ function TimedCard({
   // Report progress to parent whenever completion state changes
   useEffect(() => {
     onProgressChange?.(id, doneCount, total);
+    onDoneMapChange?.(id, doneMap);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doneCount, total]);
 
@@ -3364,10 +3370,12 @@ function DesktopColumnAnytimeCard({ entry, onSelect }: {
   );
 }
 
-function DesktopColumnTimedCard({ entry, progressMap, onProgressChange, onSelect }: {
+function DesktopColumnTimedCard({ entry, progressMap, onProgressChange, onForceSignal, onDoneMapChange, onSelect }: {
   entry: TimedEntry;
   progressMap: Record<string, { done: number; total: number }>;
   onProgressChange: (id: string, done: number, total: number) => void;
+  onForceSignal?: (id: string, allDone: boolean) => void;
+  onDoneMapChange?: (id: string, doneMap: Record<number, boolean>) => void;
   onSelect: (id: string) => void;
 }) {
   const p         = progressMap[entry.id];
@@ -3377,8 +3385,14 @@ function DesktopColumnTimedCard({ entry, progressMap, onProgressChange, onSelect
   const isAllDone = total > 0 && done === total;
 
   const handleCheckbox = () => {
-    const newDone = isAllDone ? 0 : total;
+    const newAllDone = !isAllDone;
+    const newDone    = newAllDone ? total : 0;
+    const newDoneMap = newAllDone
+      ? Object.fromEntries((entry.tasks ?? []).map((_, i) => [i, true]))
+      : {};
     onProgressChange(entry.id, newDone, total);
+    onDoneMapChange?.(entry.id, newDoneMap);
+    onForceSignal?.(entry.id, newAllDone);
   };
 
   return (
@@ -3421,12 +3435,14 @@ function DesktopColumnTimedCard({ entry, progressMap, onProgressChange, onSelect
 }
 
 function DesktopDayColumn({
-  dayId, currentDay, progressMap, onProgressChange, onSelectEntry, showDivider,
+  dayId, currentDay, progressMap, onProgressChange, onForceSignal, onDoneMapChange, onSelectEntry, showDivider,
 }: {
   dayId: number;
   currentDay: number;
   progressMap: Record<string, { done: number; total: number }>;
   onProgressChange: (id: string, done: number, total: number) => void;
+  onForceSignal?: (id: string, allDone: boolean) => void;
+  onDoneMapChange?: (id: string, doneMap: Record<number, boolean>) => void;
   onSelectEntry: (id: string | null) => void;
   showDivider: boolean;
 }) {
@@ -3515,6 +3531,8 @@ function DesktopDayColumn({
                   entry={entry}
                   progressMap={progressMap}
                   onProgressChange={onProgressChange}
+                  onForceSignal={onForceSignal}
+                  onDoneMapChange={onDoneMapChange}
                   onSelect={onSelectEntry}
                 />
               );
@@ -3527,13 +3545,15 @@ function DesktopDayColumn({
 }
 
 function DesktopThreeDayView({
-  start, onStartChange, currentDay, progressMaps, progressHandlers, onSelectEntry,
+  start, onStartChange, currentDay, progressMaps, progressHandlers, onForceSignal, onDoneMapChange, onSelectEntry,
 }: {
   start: number;
   onStartChange: (s: number) => void;
   currentDay: number;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
   progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
+  onForceSignal?: (id: string, allDone: boolean) => void;
+  onDoneMapChange?: (id: string, doneMap: Record<number, boolean>) => void;
   onSelectEntry: (id: string | null) => void;
 }) {
   const getDays = (s: number) => [s, s + 1, s + 2].filter((d) => d >= 1 && d <= 10);
@@ -3544,6 +3564,8 @@ function DesktopThreeDayView({
         key={dayId} dayId={dayId} currentDay={currentDay}
         progressMap={progressMaps[dayId] ?? {}}
         onProgressChange={progressHandlers[dayId]}
+        onForceSignal={onForceSignal}
+        onDoneMapChange={onDoneMapChange}
         onSelectEntry={onSelectEntry}
         showDivider={i < arr.length - 1}
       />
@@ -3564,11 +3586,13 @@ function DesktopThreeDayView({
 // ─── Desktop week view ────────────────────────────────────────────────────────
 
 function DesktopWeekView({
-  currentDay, progressMaps, progressHandlers, onSelectEntry,
+  currentDay, progressMaps, progressHandlers, onForceSignal, onDoneMapChange, onSelectEntry,
 }: {
   currentDay: number;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
   progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
+  onForceSignal?: (id: string, allDone: boolean) => void;
+  onDoneMapChange?: (id: string, doneMap: Record<number, boolean>) => void;
   onSelectEntry: (id: string | null) => void;
 }) {
   return (
@@ -3584,6 +3608,8 @@ function DesktopWeekView({
           currentDay={currentDay}
           progressMap={progressMaps[dayId] ?? {}}
           onProgressChange={progressHandlers[dayId]}
+          onForceSignal={onForceSignal}
+          onDoneMapChange={onDoneMapChange}
           onSelectEntry={onSelectEntry}
           showDivider={i < arr.length - 1}
         />
@@ -3641,6 +3667,25 @@ function DesktopScreen() {
     return out;
   });
   const [forceSignals, setForceSignals] = useState<Record<string, ForceSignal>>({});
+
+  // Tracks the current doneMap for every entry so sidebar cards re-mount with current state
+  const [allEntryDoneMaps, setAllEntryDoneMaps] = useState<Record<string, Record<number, boolean>>>(() => {
+    const out: Record<string, Record<number, boolean>> = {};
+    Object.values(DAY_CONTENT).forEach((content) => {
+      content.anytime.forEach((e) => { out[e.id] = e.initialDoneMap ?? {}; });
+      content.planned.forEach((e) => {
+        if (e.kind === "timed") out[e.id] = e.initialDoneMap ?? {};
+      });
+    });
+    return out;
+  });
+  const onEntryDoneMapChange = useCallback((id: string, doneMap: Record<number, boolean>) => {
+    setAllEntryDoneMaps((prev) => ({ ...prev, [id]: doneMap }));
+  }, []);
+
+  const onColumnForceSignal = useCallback((id: string, allDone: boolean) => {
+    setForceSignals((prev) => ({ ...prev, [id]: { v: (prev[id]?.v ?? 0) + 1, allDone } }));
+  }, []);
 
   // Only reset force signals + selection on day change; progress persists across days
   useEffect(() => {
@@ -3770,9 +3815,10 @@ function DesktopScreen() {
                   title={selectedFound.entry.title}
                   accentColor={selectedFound.entry.accentColor}
                   tasks={selectedFound.entry.tasks ?? []}
-                  initialDoneMap={selectedFound.entry.initialDoneMap}
+                  initialDoneMap={allEntryDoneMaps[selectedFound.entry.id] ?? selectedFound.entry.initialDoneMap}
                   initialChecked={selectedFound.entry.initialChecked}
                   onProgressChange={dtProgressHandlers[selectedFound.dayId]}
+                  onDoneMapChange={onEntryDoneMapChange}
                 />
               ) : (
                 <TimedCard
@@ -3781,9 +3827,11 @@ function DesktopScreen() {
                   timeRange={selectedFound.entry.timeRange}
                   avatarColor={selectedFound.entry.avatarColor}
                   tasks={selectedFound.entry.tasks}
+                  initialDoneMap={allEntryDoneMaps[selectedFound.entry.id] ?? selectedFound.entry.initialDoneMap}
                   initialExpanded={true}
                   noHorizontalMargin={true}
                   onProgressChange={dtProgressHandlers[selectedFound.dayId]}
+                  onDoneMapChange={onEntryDoneMapChange}
                   forceSignal={forceSignals[selectedFound.entry.id]}
                 />
               )}
@@ -3845,6 +3893,8 @@ function DesktopScreen() {
               currentDay={CURRENT_DAY}
               progressMaps={allDayProgress}
               progressHandlers={dtProgressHandlers}
+              onForceSignal={onColumnForceSignal}
+              onDoneMapChange={onEntryDoneMapChange}
               onSelectEntry={setSelectedId}
             />
           </div>
@@ -3854,6 +3904,8 @@ function DesktopScreen() {
               currentDay={CURRENT_DAY}
               progressMaps={allDayProgress}
               progressHandlers={dtProgressHandlers}
+              onForceSignal={onColumnForceSignal}
+              onDoneMapChange={onEntryDoneMapChange}
               onSelectEntry={setSelectedId}
             />
           </div>
