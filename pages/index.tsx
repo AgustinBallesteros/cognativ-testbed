@@ -2941,14 +2941,13 @@ const DESKTOP_LABEL_W  = 80;  // px width of time-label column
 
 function DesktopTimelineCard({
   entry, startMin, endMin, colIndex, colCount,
-  done, total, focused, onFocus, onCheckbox,
+  done, total, onSelect, onCheckbox,
 }: {
   entry: TimedEntry;
   startMin: number; endMin: number;
   colIndex: number; colCount: number;
   done: number; total: number;
-  focused: boolean;
-  onFocus: (id: string) => void;
+  onSelect: (id: string) => void;
   onCheckbox: () => void;
 }) {
   const top      = ((startMin - DESKTOP_TL_START * 60) / 60) * DESKTOP_PX_PER_H;
@@ -2962,7 +2961,7 @@ function DesktopTimelineCard({
 
   return (
     <div
-      onClick={(e) => { e.stopPropagation(); onFocus(entry.id); }}
+      onClick={(e) => { e.stopPropagation(); onSelect(entry.id); }}
       style={{
         position: "absolute",
         top,
@@ -2971,13 +2970,12 @@ function DesktopTimelineCard({
         height,
         background: "#fff",
         borderRadius: 12,
-        boxShadow: focused ? `0 0 0 2px ${BLUE}, ${CARD_SHADOW}` : CARD_SHADOW,
+        boxShadow: CARD_SHADOW,
         overflow: "hidden",
         cursor: "pointer",
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
-        transition: `box-shadow ${MS.dFast} ${MS.eOut}`,
         userSelect: "none",
       }}
     >
@@ -3025,12 +3023,12 @@ function DesktopTimelineCard({
 // ─── Desktop calendar content ─────────────────────────────────────────────────
 
 function DesktopCalendarContent({
-  activeDay, focusedId, onFocusEntry,
+  activeDay, nowMin, onSelectEntry,
   timedProgress, onTimelineCheckbox,
 }: {
   activeDay: number;
-  focusedId: string | null;
-  onFocusEntry: (id: string | null) => void;
+  nowMin: number;
+  onSelectEntry: (id: string | null) => void;
   timedProgress: Record<string, { done: number; total: number }>;
   onTimelineCheckbox: (id: string) => void;
 }) {
@@ -3060,20 +3058,6 @@ function DesktopCalendarContent({
   );
   const totalH = hours.length * DESKTOP_PX_PER_H;
 
-  // Current-time tracker — updates every 30 s
-  const [nowMin, setNowMin] = useState(() => {
-    const d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  });
-  useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      setNowMin(d.getHours() * 60 + d.getMinutes());
-    };
-    const id = setInterval(tick, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   return (
     /* Outer shell — margin gap around the rounded frame */
     <div style={{ flex: 1, overflow: "hidden", background: "#fff", padding: "0 12px 12px 12px" }}>
@@ -3089,7 +3073,7 @@ function DesktopCalendarContent({
         {/* ── Single scrollable container (anytime + timeline) ── */}
         <div
           id="desktop-calendar-scroll"
-          onClick={() => onFocusEntry(null)}
+          onClick={() => onSelectEntry(null)}
           style={{ height: "100%", overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}
         >
 
@@ -3168,8 +3152,7 @@ function DesktopCalendarContent({
                     colCount={colCount}
                     done={done}
                     total={total}
-                    focused={focusedId === entry.id}
-                    onFocus={onFocusEntry}
+                    onSelect={onSelectEntry}
                     onCheckbox={() => onTimelineCheckbox(entry.id)}
                   />
                 );
@@ -3189,8 +3172,21 @@ function DesktopCalendarContent({
 function DesktopScreen() {
   const [activeDay,     setActiveDay]     = useState<number>(CURRENT_DAY);
   const [view,          setView]          = useState<CalendarView>("day");
-  const [focusedId,     setFocusedId]     = useState<string | null>(null);
+  const [selectedId,    setSelectedId]    = useState<string | null>(null);
   const [transitionDir, setTransitionDir] = useState<"left" | "right">("left");
+
+  const [nowMin, setNowMin] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMin(d.getHours() * 60 + d.getMinutes());
+    };
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Shared subtask progress (sidebar TimedCard → timeline card) ───────────
   const [timedProgress, setTimedProgress] =
@@ -3198,11 +3194,11 @@ function DesktopScreen() {
   const [forceSignals, setForceSignals] =
     useState<Record<string, ForceSignal>>({});
 
-  // Reset shared state + focus when the day changes
+  // Reset shared state + selection when the day changes
   useEffect(() => {
     setTimedProgress({});
     setForceSignals({});
-    setFocusedId(null);
+    setSelectedId(null);
   }, [activeDay]);
 
   const onTimedProgressChange = useCallback((id: string, done: number, total: number) => {
@@ -3218,13 +3214,6 @@ function DesktopScreen() {
     }));
   }, [timedProgress]);
 
-  // Refs for sidebar cards — used to scroll focused card into view
-  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  useEffect(() => {
-    if (!focusedId) return;
-    cardRefs.current[focusedId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [focusedId]);
-
   const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
   const navigateDay = (delta: number) => {
     setTransitionDir(delta > 0 ? "left" : "right");
@@ -3233,8 +3222,15 @@ function DesktopScreen() {
     setActiveDay(DAY_IDS[newIdx]);
   };
 
-  const sidebarEntries = (DAY_CONTENT[activeDay]?.planned ?? [])
+  const allTimedEntries = (DAY_CONTENT[activeDay]?.planned ?? [])
     .filter((e): e is TimedEntry => e.kind === "timed");
+
+  const sidebarEntries = selectedId !== null
+    ? allTimedEntries.filter((e) => e.id === selectedId)
+    : allTimedEntries.filter((e) => {
+        const { startMin: s, endMin: en } = parseTimeRange(e.timeRange);
+        return nowMin >= s && nowMin < en;
+      });
 
   return (
     <div style={{
@@ -3266,7 +3262,7 @@ function DesktopScreen() {
       {/* ── Sidebar — 20% ── */}
       <div
         id="desktop-sidebar"
-        onClick={() => setFocusedId(null)}
+        onClick={() => setSelectedId(null)}
         style={{
           width: "20%", flexShrink: 0,
           background: "#fff",
@@ -3277,21 +3273,9 @@ function DesktopScreen() {
           scrollbarWidth: "none",
         } as React.CSSProperties}
       >
-        {/* Keyed wrapper drives the slide animation on day change */}
         <div key={activeDay} className={`dt-slide-${transitionDir}`}>
           {sidebarEntries.map((entry) => (
-            <div
-              key={entry.id}
-              ref={(el) => { cardRefs.current[entry.id] = el; }}
-              onClick={(e) => { e.stopPropagation(); setFocusedId(entry.id); }}
-              style={{
-                marginBottom: 8,
-                borderRadius: 14,
-                outline: focusedId === entry.id ? `2px solid ${BLUE}` : "2px solid transparent",
-                transition: `outline-color ${MS.dFast} ${MS.eOut}`,
-                cursor: "pointer",
-              }}
-            >
+            <div key={entry.id} style={{ marginBottom: 8 }}>
               <TimedCard
                 id={entry.id}
                 title={entry.title}
@@ -3335,8 +3319,8 @@ function DesktopScreen() {
         >
           <DesktopCalendarContent
             activeDay={activeDay}
-            focusedId={focusedId}
-            onFocusEntry={setFocusedId}
+            nowMin={nowMin}
+            onSelectEntry={setSelectedId}
             timedProgress={timedProgress}
             onTimelineCheckbox={onTimelineCheckbox}
           />
