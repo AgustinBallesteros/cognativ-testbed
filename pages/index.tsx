@@ -3541,7 +3541,6 @@ function DesktopScreen() {
   const [activeDay,     setActiveDay]     = useState<number>(CURRENT_DAY);
   const [view,          setView]          = useState<CalendarView>("day");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
-  const [transitionDir, setTransitionDir] = useState<"left" | "right">("left");
 
   const [nowMin, setNowMin] = useState(() => {
     const d = new Date();
@@ -3588,7 +3587,6 @@ function DesktopScreen() {
 
   const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
   const navigateDay = (delta: number) => {
-    setTransitionDir(delta > 0 ? "left" : "right");
     const idx    = DAY_IDS.indexOf(activeDay);
     const newIdx = Math.max(0, Math.min(DAY_IDS.length - 1, idx + delta));
     setActiveDay(DAY_IDS[newIdx]);
@@ -3648,16 +3646,11 @@ function DesktopScreen() {
       <style>{`
         #desktop-sidebar::-webkit-scrollbar          { display: none; }
         #desktop-calendar-scroll::-webkit-scrollbar  { display: none; }
-        @keyframes dtSlideInRight {
-          from { transform: translateX(28px); opacity: 0; }
-          to   { transform: translateX(0);    opacity: 1; }
+        @keyframes dtDissolve {
+          from { opacity: 0; }
+          to   { opacity: 1; }
         }
-        @keyframes dtSlideInLeft {
-          from { transform: translateX(-28px); opacity: 0; }
-          to   { transform: translateX(0);     opacity: 1; }
-        }
-        .dt-slide-left  { animation: dtSlideInRight 220ms cubic-bezier(0.25,0.46,0.45,0.94) both; }
-        .dt-slide-right { animation: dtSlideInLeft  220ms cubic-bezier(0.25,0.46,0.45,0.94) both; }
+        .dt-dissolve { animation: dtDissolve 180ms ease both; }
         @keyframes dtHeaderFade {
           from { opacity: 0; transform: translateY(3px); }
           to   { opacity: 1; transform: translateY(0);   }
@@ -3683,7 +3676,7 @@ function DesktopScreen() {
           scrollbarWidth: "none",
         } as React.CSSProperties}
       >
-        <div key={activeDay} className={`dt-slide-${transitionDir}`}>
+        <div key={activeDay} className="dt-dissolve">
           {selectedFound ? (
             <div style={{ marginBottom: 8 }}>
               {selectedFound.kind === "anytime" ? (
@@ -3754,7 +3747,6 @@ function DesktopScreen() {
           onTodayJump={() => {
             if (view === "3day") setThreeDayStart(1);
             else {
-              setTransitionDir(activeDay > CURRENT_DAY ? "right" : "left");
               setActiveDay(CURRENT_DAY);
             }
           }}
@@ -3776,7 +3768,7 @@ function DesktopScreen() {
           /* Day view with slide animation */
           <div
             key={activeDay}
-            className={`dt-slide-${transitionDir}`}
+            className="dt-dissolve"
             style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}
           >
             <DesktopCalendarContent
