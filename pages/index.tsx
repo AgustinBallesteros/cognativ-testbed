@@ -311,13 +311,16 @@ function DayRing({ progress, W = 44, H = 52, RX = 12 }: { progress: number; W?: 
 
 // April 2026: Wed=1, Thu=2, Fri=3, Sat=4, Sun=5, Mon=6, Tue=7
 const WEEK_DAYS = [
-  { label: "S", fullLabel: "Sun", num: "5", id: 1 },
-  { label: "M", fullLabel: "Mon", num: "6", id: 2 },
-  { label: "T", fullLabel: "Tue", num: "7", id: 3 },
-  { label: "W", fullLabel: "Wed", num: "1", id: 4 },
-  { label: "T", fullLabel: "Thu", num: "2", id: 5 },
-  { label: "F", fullLabel: "Fri", num: "3", id: 6 },
-  { label: "S", fullLabel: "Sat", num: "4", id: 7 },
+  { label: "S", fullLabel: "Sun", num: "5",  id: 1  },
+  { label: "M", fullLabel: "Mon", num: "6",  id: 2  },
+  { label: "T", fullLabel: "Tue", num: "7",  id: 3  },
+  { label: "W", fullLabel: "Wed", num: "1",  id: 4  },
+  { label: "T", fullLabel: "Thu", num: "2",  id: 5  },
+  { label: "F", fullLabel: "Fri", num: "3",  id: 6  },
+  { label: "S", fullLabel: "Sat", num: "4",  id: 7  },
+  { label: "W", fullLabel: "Wed", num: "8",  id: 8  },
+  { label: "T", fullLabel: "Thu", num: "9",  id: 9  },
+  { label: "F", fullLabel: "Fri", num: "10", id: 10 },
 ];
 
 function WeekStrip({
@@ -1427,6 +1430,168 @@ const DAY_CONTENT: Record<number, { anytime: TaskEntry[]; planned: PlannedEntry[
       },
     ],
   },
+
+  // ── Wednesday Apr 8 ─────────────────────────────────────────────────────────
+  8: {
+    anytime: [
+      {
+        kind: "task", id: "wed8-review", title: "Review lecture slides", accentColor: "#818CF8",
+        tasks: [
+          { label: "Re-read Biology slides",          minutes: 15 },
+          { label: "Highlight key diagrams",          minutes: 10 },
+          { label: "Write summary notes",             minutes: 10 },
+        ],
+      },
+      {
+        kind: "task", id: "wed8-flashcards", title: "Make flashcards", accentColor: "#F59E0B",
+        tasks: [
+          { label: "Create cards for new terms",      minutes: 20 },
+          { label: "Review previous deck",            minutes: 10 },
+        ],
+      },
+    ],
+    planned: [
+      {
+        kind: "timed", id: "wed8-gym", title: "Gym session",
+        timeRange: "7:30AM → 8:30 AM", avatarColor: "#F97316",
+        tasks: [
+          { label: "Warm-up cardio",                  minutes: 10 },
+          { label: "Upper body strength sets",        minutes: 30 },
+          { label: "Core circuit",                    minutes: 10 },
+          { label: "Cool-down stretch",               minutes: 10 },
+        ],
+      },
+      { kind: "gap", id: "wed8-gap-2hr", label: "2:00hr gap" },
+      {
+        kind: "timed", id: "wed8-bio-lab", title: "Biology lab",
+        timeRange: "10:30AM → 12:30 PM", avatarColor: "#34D399",
+        tasks: [
+          { label: "Read pre-lab instructions",       minutes: 10 },
+          { label: "Set up equipment",                minutes: 10 },
+          { label: "Run experiment",                  minutes: 60 },
+          { label: "Record results and clean up",     minutes: 20 },
+        ],
+      },
+      { kind: "gap", id: "wed8-gap-3hr", label: "3:00hr gap" },
+      {
+        kind: "timed", id: "wed8-tutoring", title: "Peer tutoring — Calculus",
+        timeRange: "3:30PM → 4:30 PM", avatarColor: "#A78BFA",
+        tasks: [
+          { label: "Review problem sets together",    minutes: 30 },
+          { label: "Work through tricky integrals",  minutes: 20 },
+          { label: "Summarise key methods",           minutes: 10 },
+        ],
+      },
+    ],
+  },
+
+  // ── Thursday Apr 9 ──────────────────────────────────────────────────────────
+  9: {
+    anytime: [
+      {
+        kind: "task", id: "thu9-essay", title: "Essay draft — History", accentColor: "#F472B6",
+        tasks: [
+          { label: "Outline argument structure",      minutes: 15 },
+          { label: "Write introduction paragraph",   minutes: 20 },
+          { label: "Draft body paragraphs",          minutes: 40 },
+          { label: "Add citations",                  minutes: 15 },
+        ],
+      },
+      {
+        kind: "task", id: "thu9-email", title: "Reply to professor email", accentColor: "#60A5FA",
+        tasks: [
+          { label: "Read professor's feedback",      minutes: 5  },
+          { label: "Draft reply",                    minutes: 10 },
+          { label: "Proofread and send",             minutes: 5  },
+        ],
+      },
+    ],
+    planned: [
+      {
+        kind: "timed", id: "thu9-physics", title: "Physics lecture",
+        timeRange: "9:00AM → 10:30 AM", avatarColor: "#38BDF8",
+        tasks: [
+          { label: "Review previous notes before class", minutes: 10 },
+          { label: "Attend and take notes",           minutes: 75 },
+          { label: "Summarise key equations",         minutes: 5  },
+        ],
+      },
+      { kind: "gap", id: "thu9-gap-90min", label: "1:30hr gap" },
+      {
+        kind: "timed", id: "thu9-office", title: "Office hours — Physics",
+        timeRange: "12:00PM → 1:00 PM", avatarColor: "#FB923C",
+        tasks: [
+          { label: "Prepare questions in advance",   minutes: 10 },
+          { label: "Discuss problem set doubts",     minutes: 40 },
+          { label: "Note down professor's hints",    minutes: 10 },
+        ],
+      },
+      { kind: "gap", id: "thu9-gap-3hr", label: "3:00hr gap" },
+      {
+        kind: "timed", id: "thu9-study-group", title: "Study group — Chemistry",
+        timeRange: "4:00PM → 5:30 PM", avatarColor: "#4ADE80",
+        tasks: [
+          { label: "Assign topics to each member",   minutes: 5  },
+          { label: "Present individual summaries",   minutes: 50 },
+          { label: "Solve practice problems together", minutes: 35 },
+        ],
+      },
+    ],
+  },
+
+  // ── Friday Apr 10 ───────────────────────────────────────────────────────────
+  10: {
+    anytime: [
+      {
+        kind: "task", id: "fri10-plan", title: "Weekend planning", accentColor: "#34D399",
+        tasks: [
+          { label: "List pending assignments",       minutes: 10 },
+          { label: "Block study time on calendar",   minutes: 5  },
+          { label: "Plan one fun activity",          minutes: 5  },
+        ],
+      },
+      {
+        kind: "task", id: "fri10-laundry", title: "Do laundry", accentColor: "#F59E0B",
+        tasks: [
+          { label: "Sort clothes by colour",        minutes: 5  },
+          { label: "Run wash cycle",                minutes: 40 },
+          { label: "Dry and fold",                  minutes: 20 },
+        ],
+      },
+    ],
+    planned: [
+      {
+        kind: "timed", id: "fri10-stats-lab", title: "Stats lab",
+        timeRange: "10:00AM → 11:30 AM", avatarColor: "#818CF8",
+        tasks: [
+          { label: "Open dataset and verify import", minutes: 10 },
+          { label: "Run regression analysis",       minutes: 30 },
+          { label: "Interpret output",              minutes: 20 },
+          { label: "Write lab report section",      minutes: 30 },
+        ],
+      },
+      { kind: "gap", id: "fri10-gap-90min", label: "1:30hr gap" },
+      {
+        kind: "timed", id: "fri10-club", title: "Academic club meeting",
+        timeRange: "1:00PM → 2:00 PM", avatarColor: "#F472B6",
+        tasks: [
+          { label: "Catch up on announcements",     minutes: 10 },
+          { label: "Participate in discussion",     minutes: 40 },
+          { label: "Volunteer for next event",      minutes: 10 },
+        ],
+      },
+      { kind: "gap", id: "fri10-gap-4hr", label: "4:00hr gap" },
+      {
+        kind: "timed", id: "fri10-dinner", title: "Dinner with friends",
+        timeRange: "6:00PM → 7:30 PM", avatarColor: "#FCD34D",
+        tasks: [
+          { label: "Pick a restaurant",             minutes: 5  },
+          { label: "Enjoy the meal",                minutes: 60 },
+          { label: "Split the bill",                minutes: 5  },
+        ],
+      },
+    ],
+  },
 };
 
 // ─── Day Content ─────────────────────────────────────────────────────────────
@@ -1983,6 +2148,7 @@ const MONTH_NAMES = [
 ];
 const FULL_DAY_NAMES = [
   "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
+  "Wednesday","Thursday","Friday",
 ];
 
 function getMonthInfo(offset: number) {
@@ -3335,7 +3501,7 @@ function DesktopThreeDayView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [start]);
 
-  const getDays      = (s: number) => [s, s + 1, s + 2].filter((d) => d >= 1 && d <= 7);
+  const getDays      = (s: number) => [s, s + 1, s + 2].filter((d) => d >= 1 && d <= 10);
   const slideInAnim  = slideDir === "left" ? "tdSlideInRight" : "tdSlideInLeft";
   const slideOutAnim = slideDir === "left" ? "tdSlideOutLeft" : "tdSlideOutRight";
 
@@ -3429,13 +3595,11 @@ function DesktopScreen() {
   };
 
   // ── 3-day view ────────────────────────────────────────────────────────────
-  // Valid page starts: 1→[1,2,3], 4→[4,5,6], 5→[5,6,7]
-  const [threeDayStart, setThreeDayStart] = useState<number>(() =>
-    CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 5
-  );
+  // Page starts: 5→[Apr2,3,4]  1→[Apr5,6,7 current]  8→[Apr8,9,10]
+  const [threeDayStart, setThreeDayStart] = useState<number>(1);
   const dtProgressHandlers = useMemo(() => {
     const out: Record<number, (id: string, done: number, total: number) => void> = {};
-    [1, 2, 3, 4, 5, 6, 7].forEach((dayId) => {
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((dayId) => {
       out[dayId] = (id, done, total) =>
         setAllDayProgress((prev) => ({
           ...prev,
@@ -3445,7 +3609,7 @@ function DesktopScreen() {
     return out;
   }, []);
 
-  const dt3Days       = [threeDayStart, threeDayStart + 1, threeDayStart + 2].filter((d) => d >= 1 && d <= 7);
+  const dt3Days       = [threeDayStart, threeDayStart + 1, threeDayStart + 2].filter((d) => d >= 1 && d <= 10);
   const showTodayBtn  = view === "3day"
     ? !dt3Days.includes(CURRENT_DAY)
     : activeDay !== CURRENT_DAY;
@@ -3580,15 +3744,15 @@ function DesktopScreen() {
           dateLabel={view === "3day" ? "April 2026" : undefined}
           showTodayBtn={showTodayBtn}
           onPrevDay={() => {
-            if (view === "3day") setThreeDayStart((s) => s === 5 ? 4 : s === 4 ? 1 : s);
+            if (view === "3day") setThreeDayStart((s) => s === 1 ? 5 : s === 8 ? 1 : s);
             else navigateDay(-1);
           }}
           onNextDay={() => {
-            if (view === "3day") setThreeDayStart((s) => s === 1 ? 4 : s === 4 ? 5 : s);
+            if (view === "3day") setThreeDayStart((s) => s === 5 ? 1 : s === 1 ? 8 : s);
             else navigateDay(1);
           }}
           onTodayJump={() => {
-            if (view === "3day") setThreeDayStart(CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 5);
+            if (view === "3day") setThreeDayStart(1);
             else {
               setTransitionDir(activeDay > CURRENT_DAY ? "right" : "left");
               setActiveDay(CURRENT_DAY);
