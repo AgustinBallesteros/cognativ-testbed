@@ -3409,9 +3409,7 @@ function DesktopColumnTimedCard({ entry, progressMap, onProgressChange, onSelect
         <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {entry.title}
         </div>
-        {total > 0 && (
-          <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>Task list ({total})</div>
-        )}
+        <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>{entry.timeRange}</div>
       </div>
       {/* Checkbox */}
       <div style={{ paddingRight: 12, flexShrink: 0 }}>
