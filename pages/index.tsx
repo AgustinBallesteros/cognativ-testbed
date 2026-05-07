@@ -3748,8 +3748,6 @@ function DesktopMonthCell({
               <div style={{
                 position: "absolute", inset: 0,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: "50%",
-                background: isToday ? BLUE : "transparent",
               }}>
                 <span style={{
                   fontSize: 13,
