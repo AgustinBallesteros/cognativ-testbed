@@ -1617,12 +1617,16 @@ function DayContent({
   progressMap,
   onProgressChange,
   forceSignals = {},
+  allEntryDoneMaps = {},
+  onEntryDoneMapChange,
 }: {
   dayId: number;
   isVisible: boolean;
   progressMap: Record<string, { done: number; total: number }>;
   onProgressChange: (id: string, done: number, total: number) => void;
   forceSignals?: Record<string, ForceSignal>;
+  allEntryDoneMaps?: Record<string, Record<number, boolean>>;
+  onEntryDoneMapChange?: (id: string, doneMap: Record<number, boolean>) => void;
 }) {
   const anytimeRef = useRef<HTMLDivElement>(null);
   const plannedRef = useRef<HTMLDivElement>(null);
@@ -1665,9 +1669,15 @@ function DayContent({
           {day?.anytime.map((c) => (
             <TaskCard
               key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
-              tasks={c.tasks} initialDoneMap={c.initialDoneMap}
-              initialChecked={c.initialChecked}
+              tasks={c.tasks}
+              initialDoneMap={allEntryDoneMaps[c.id] ?? c.initialDoneMap}
+              initialChecked={
+                (c.tasks?.length ?? 0) === 0
+                  ? ((progressMap[c.id]?.done ?? 0) > 0)
+                  : c.initialChecked
+              }
               onProgressChange={onProgressChange}
+              onDoneMapChange={onEntryDoneMapChange}
               forceSignal={forceSignals[c.id]}
             />
           ))}
@@ -1697,8 +1707,10 @@ function DayContent({
               <TimedCard
                 key={c.id} id={c.id} title={c.title}
                 timeRange={c.timeRange} avatarColor={c.avatarColor}
-                tasks={c.tasks} initialDoneMap={c.initialDoneMap}
+                tasks={c.tasks}
+                initialDoneMap={allEntryDoneMaps[c.id] ?? c.initialDoneMap}
                 onProgressChange={onProgressChange}
+                onDoneMapChange={onEntryDoneMapChange}
                 forceSignal={forceSignals[c.id]}
               />
             )
@@ -2629,12 +2641,14 @@ function DashboardScreen({
   progressMaps,
   progressHandlers,
   allEntryDoneMaps,
+  onEntryDoneMapChange,
 }: {
   width?: number | string;
   height?: number | string;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
   progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
   allEntryDoneMaps: Record<string, Record<number, boolean>>;
+  onEntryDoneMapChange: (id: string, doneMap: Record<number, boolean>) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -2682,69 +2696,6 @@ function DashboardScreen({
       };
     });
   }, []);
-
-  // ── Desktop → mobile sync ──────────────────────────────────────────────────
-  // allEntryDoneMaps is only written by desktop (sidebar + column checkbox + timeline).
-  // When it changes, push the updated doneMap to mobile cards via forceSignal.
-
-  // Build a stable entry→dayId lookup from DAY_CONTENT
-  const entryDayIdLookup = useMemo<Record<string, number>>(() => {
-    const lookup: Record<string, number> = {};
-    for (const [dayIdStr, content] of Object.entries(DAY_CONTENT)) {
-      const dayId = Number(dayIdStr);
-      for (const e of content.anytime) lookup[e.id] = dayId;
-      for (const e of content.planned) if (e.kind === "timed") lookup[e.id] = dayId;
-    }
-    return lookup;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Build a stable set of no-task entry ids (tasks=[] entries use simpleChecked, not doneMap)
-  const noTaskEntryIds = useMemo<Set<string>>(() => {
-    const set = new Set<string>();
-    for (const content of Object.values(DAY_CONTENT)) {
-      for (const e of content.anytime) {
-        if (!e.tasks || e.tasks.length === 0) set.add(e.id);
-      }
-    }
-    return set;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Watch allEntryDoneMaps (task-based entries): fires only for desktop-originated changes
-  const prevEntryDoneMapsRef = useRef(allEntryDoneMaps);
-  useEffect(() => {
-    const prev = prevEntryDoneMapsRef.current;
-    if (prev === allEntryDoneMaps) return;
-    for (const [entryId, doneMap] of Object.entries(allEntryDoneMaps)) {
-      if (prev[entryId] === doneMap) continue; // same reference → not changed
-      const dayId = entryDayIdLookup[entryId];
-      if (dayId === undefined) continue;
-      const done    = Object.values(doneMap).filter(Boolean).length;
-      const total   = Object.keys(doneMap).length;
-      const allDone = total > 0 && done === total;
-      handleForceSignal(dayId, entryId, allDone, doneMap);
-    }
-    prevEntryDoneMapsRef.current = allEntryDoneMaps;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allEntryDoneMaps]);
-
-  // Watch progressMaps for no-task entries (their doneMap is always {}, so we diff the aggregate)
-  const prevNoTaskProgressRef = useRef<Record<string, { done: number; total: number }>>({});
-  useEffect(() => {
-    for (const [dayIdStr, dayMap] of Object.entries(progressMaps)) {
-      const dayId = Number(dayIdStr);
-      for (const [entryId, { done, total }] of Object.entries(dayMap)) {
-        if (!noTaskEntryIds.has(entryId)) continue;
-        const prev = prevNoTaskProgressRef.current[entryId];
-        if (prev && prev.done === done && prev.total === total) continue;
-        prevNoTaskProgressRef.current[entryId] = { done, total };
-        if (prev === undefined) continue; // skip initial seeding, only react to changes
-        handleForceSignal(dayId, entryId, done > 0);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progressMaps]);
 
   // Derive a progress value (0–1) for each day from its map
   const fullProgressMap = useMemo(() => {
@@ -2871,6 +2822,8 @@ function DashboardScreen({
             progressMap={progressMaps[dayId] ?? {}}
             onProgressChange={progressHandlers[dayId]}
             forceSignals={forceSignals[dayId] ?? {}}
+            allEntryDoneMaps={allEntryDoneMaps}
+            onEntryDoneMapChange={onEntryDoneMapChange}
           />
         ))}
 
@@ -4486,6 +4439,7 @@ export default function Home() {
               progressMaps={allDayProgress}
               progressHandlers={allProgressHandlers}
               allEntryDoneMaps={allEntryDoneMaps}
+              onEntryDoneMapChange={onEntryDoneMapChange}
             />
           )}
         </div>
