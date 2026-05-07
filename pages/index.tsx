@@ -2620,9 +2620,13 @@ function DayBottomSheet({
 function DashboardScreen({
   width = 393,
   height = 852,
+  progressMaps,
+  progressHandlers,
 }: {
   width?: number | string;
   height?: number | string;
+  progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+  progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -2651,12 +2655,6 @@ function DashboardScreen({
   // Active day — default Monday
   const [activeDay, setActiveDay] = useState<number>(6);
 
-  // Per-day progress maps — never cleared, so card state survives day switches.
-  // Keyed by day id → card id → { done, total }.
-  const [progressMaps, setProgressMaps] = useState<
-    Record<number, Record<string, { done: number; total: number }>>
-  >({});
-
   // Cross-view sync signals: toggling in 3-day view forces Day view cards to match.
   // Version-gated so TaskCard/TimedCard only react to genuine new signals.
   const [forceSignals, setForceSignals] = useState<
@@ -2675,23 +2673,6 @@ function DashboardScreen({
         [dayId]: { ...daySignals, [cardId]: { v: nextV, allDone } },
       };
     });
-  }, []);
-
-  // Stable per-day handlers created once; each captures its own dayId.
-  const progressHandlers = useMemo(() => {
-    const out: Record<number, (id: string, done: number, total: number) => void> = {};
-    for (const dayId of Object.keys(DAY_CONTENT).map(Number)) {
-      out[dayId] = (id, done, total) => {
-        setProgressMaps((prev) => {
-          const dayMap = prev[dayId] ?? {};
-          const entry = dayMap[id];
-          if (entry && entry.done === done && entry.total === total) return prev;
-          return { ...prev, [dayId]: { ...dayMap, [id]: { done, total } } };
-        });
-      };
-    }
-    return out;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Derive a progress value (0–1) for each day from its map
@@ -3896,7 +3877,19 @@ function DesktopMonthView({
 
 // ─── Desktop screen ───────────────────────────────────────────────────────────
 
-function DesktopScreen() {
+function DesktopScreen({
+  allDayProgress,
+  setAllDayProgress,
+  allEntryDoneMaps,
+  onEntryDoneMapChange,
+  dtProgressHandlers,
+}: {
+  allDayProgress: Record<number, Record<string, { done: number; total: number }>>;
+  setAllDayProgress: React.Dispatch<React.SetStateAction<Record<number, Record<string, { done: number; total: number }>>>>;
+  allEntryDoneMaps: Record<string, Record<number, boolean>>;
+  onEntryDoneMapChange: (id: string, doneMap: Record<number, boolean>) => void;
+  dtProgressHandlers: Record<number, (id: string, done: number, total: number) => void>;
+}) {
   const [activeDay,     setActiveDay]     = useState<number>(CURRENT_DAY);
   const [view,          setView]          = useState<CalendarView>("day");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
@@ -3914,50 +3907,7 @@ function DesktopScreen() {
     return () => clearInterval(id);
   }, []);
 
-  // ── Unified progress across all days (shared between day + 3-day views) ──
-  // Seeded from DAY_CONTENT initialDoneMap so rings/fills are correct on first render,
-  // without needing cards to mount and report via onProgressChange.
-  const [allDayProgress, setAllDayProgress] = useState<
-    Record<number, Record<string, { done: number; total: number }>>
-  >(() => {
-    const out: Record<number, Record<string, { done: number; total: number }>> = {};
-    Object.entries(DAY_CONTENT).forEach(([dayIdStr, content]) => {
-      const dayId = Number(dayIdStr);
-      out[dayId] = {};
-      content.anytime.forEach((e) => {
-        const total = e.tasks?.length ?? 0;
-        if (total === 0) {
-          out[dayId][e.id] = { done: e.initialChecked ? 1 : 0, total: 1 };
-        } else {
-          const done = Object.values(e.initialDoneMap ?? {}).filter(Boolean).length;
-          out[dayId][e.id] = { done, total };
-        }
-      });
-      content.planned.forEach((e) => {
-        if (e.kind !== "timed") return;
-        const total = e.tasks?.length ?? 0;
-        const done  = total > 0 ? Object.values(e.initialDoneMap ?? {}).filter(Boolean).length : 0;
-        out[dayId][e.id] = { done, total };
-      });
-    });
-    return out;
-  });
   const [forceSignals, setForceSignals] = useState<Record<string, ForceSignal>>({});
-
-  // Tracks the current doneMap for every entry so sidebar cards re-mount with current state
-  const [allEntryDoneMaps, setAllEntryDoneMaps] = useState<Record<string, Record<number, boolean>>>(() => {
-    const out: Record<string, Record<number, boolean>> = {};
-    Object.values(DAY_CONTENT).forEach((content) => {
-      content.anytime.forEach((e) => { out[e.id] = e.initialDoneMap ?? {}; });
-      content.planned.forEach((e) => {
-        if (e.kind === "timed") out[e.id] = e.initialDoneMap ?? {};
-      });
-    });
-    return out;
-  });
-  const onEntryDoneMapChange = useCallback((id: string, doneMap: Record<number, boolean>) => {
-    setAllEntryDoneMaps((prev) => ({ ...prev, [id]: doneMap }));
-  }, []);
 
   const onColumnForceSignal = useCallback((id: string, allDone: boolean) => {
     setForceSignals((prev) => ({ ...prev, [id]: { v: (prev[id]?.v ?? 0) + 1, allDone } }));
@@ -3976,24 +3926,22 @@ function DesktopScreen() {
       ...prev,
       [activeDay]: { ...(prev[activeDay] ?? {}), [id]: { done, total } },
     }));
-  }, [activeDay]);
+  }, [activeDay, setAllDayProgress]);
 
   const onTimelineCheckbox = useCallback((id: string) => {
     const cur     = (allDayProgress[activeDay] ?? {})[id];
     const allDone = cur ? cur.done === cur.total && cur.total > 0 : false;
     const total   = cur?.total ?? 0;
     const newDone = allDone ? 0 : total;
-    // Update allDayProgress directly (not relying on TimedCard being mounted)
     setAllDayProgress((prev) => ({
       ...prev,
       [activeDay]: { ...(prev[activeDay] ?? {}), [id]: { done: newDone, total } },
     }));
-    // Also send force signal so the sidebar TimedCard updates visually if open
     setForceSignals((prev) => ({
       ...prev,
       [id]: { v: (prev[id]?.v ?? 0) + 1, allDone: !allDone },
     }));
-  }, [allDayProgress, activeDay]);
+  }, [allDayProgress, activeDay, setAllDayProgress]);
 
   const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
   const navigateDay = (delta: number) => {
@@ -4009,17 +3957,6 @@ function DesktopScreen() {
   // ── Month view ─────────────────────────────────────────────────────────────
   const [monthOffset, setMonthOffset] = useState<number>(0);
   const { monthName: monthViewName, yearStr: monthViewYear } = getMonthInfo(monthOffset);
-  const dtProgressHandlers = useMemo(() => {
-    const out: Record<number, (id: string, done: number, total: number) => void> = {};
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((dayId) => {
-      out[dayId] = (id, done, total) =>
-        setAllDayProgress((prev) => ({
-          ...prev,
-          [dayId]: { ...(prev[dayId] ?? {}), [id]: { done, total } },
-        }));
-    });
-    return out;
-  }, []);
 
   const dt3Days       = [threeDayStart, threeDayStart + 1, threeDayStart + 2].filter((d) => d >= 1 && d <= 10);
   const showTodayBtn  = view === "3day"   ? !dt3Days.includes(CURRENT_DAY)
@@ -4255,6 +4192,63 @@ export default function Home() {
   const [menuOpen,    setMenuOpen]    = useState(true);
   const [platform,    setPlatform]    = useState<Platform>("mobile");
 
+  // ── Unified progress — shared between mobile and desktop ──────────────────
+  const [allDayProgress, setAllDayProgress] = useState<
+    Record<number, Record<string, { done: number; total: number }>>
+  >(() => {
+    const out: Record<number, Record<string, { done: number; total: number }>> = {};
+    Object.entries(DAY_CONTENT).forEach(([dayIdStr, content]) => {
+      const dayId = Number(dayIdStr);
+      out[dayId] = {};
+      content.anytime.forEach((e) => {
+        const total = e.tasks?.length ?? 0;
+        if (total === 0) {
+          out[dayId][e.id] = { done: e.initialChecked ? 1 : 0, total: 1 };
+        } else {
+          const done = Object.values(e.initialDoneMap ?? {}).filter(Boolean).length;
+          out[dayId][e.id] = { done, total };
+        }
+      });
+      content.planned.forEach((e) => {
+        if (e.kind !== "timed") return;
+        const total = e.tasks?.length ?? 0;
+        const done  = total > 0 ? Object.values(e.initialDoneMap ?? {}).filter(Boolean).length : 0;
+        out[dayId][e.id] = { done, total };
+      });
+    });
+    return out;
+  });
+
+  const [allEntryDoneMaps, setAllEntryDoneMaps] = useState<Record<string, Record<number, boolean>>>(() => {
+    const out: Record<string, Record<number, boolean>> = {};
+    Object.values(DAY_CONTENT).forEach((content) => {
+      content.anytime.forEach((e) => { out[e.id] = e.initialDoneMap ?? {}; });
+      content.planned.forEach((e) => {
+        if (e.kind === "timed") out[e.id] = e.initialDoneMap ?? {};
+      });
+    });
+    return out;
+  });
+
+  const onEntryDoneMapChange = useCallback((id: string, doneMap: Record<number, boolean>) => {
+    setAllEntryDoneMaps((prev) => ({ ...prev, [id]: doneMap }));
+  }, []);
+
+  const allProgressHandlers = useMemo(() => {
+    const out: Record<number, (id: string, done: number, total: number) => void> = {};
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((dayId) => {
+      out[dayId] = (id, done, total) =>
+        setAllDayProgress((prev) => {
+          const dayMap = prev[dayId] ?? {};
+          const entry  = dayMap[id];
+          if (entry && entry.done === done && entry.total === total) return prev;
+          return { ...prev, [dayId]: { ...dayMap, [id]: { done, total } } };
+        });
+    });
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Reset scale to 1 when switching to desktop (no auto-fit needed)
   useEffect(() => {
     if (platform === "desktop") setScale(1);
@@ -4398,11 +4392,19 @@ export default function Home() {
           }}
         >
           {isDesktop ? (
-            <DesktopScreen />
+            <DesktopScreen
+              allDayProgress={allDayProgress}
+              setAllDayProgress={setAllDayProgress}
+              allEntryDoneMaps={allEntryDoneMaps}
+              onEntryDoneMapChange={onEntryDoneMapChange}
+              dtProgressHandlers={allProgressHandlers}
+            />
           ) : (
             <DashboardScreen
               width={isResponsive ? "100%" : w!}
               height={isResponsive ? "100%" : h!}
+              progressMaps={allDayProgress}
+              progressHandlers={allProgressHandlers}
             />
           )}
         </div>
