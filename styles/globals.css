@@ -1,0 +1,41 @@
+@import "tailwindcss";
+@import "./motion-system.css";
+
+/* ─── Brand tokens — the single swap point ───────────────────
+   Change --accent here and the dev menu, progress bars, and
+   checkbox marks all follow. Nothing else hardcodes the color.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --accent:      #558BF7;
+  --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
+
+  /* Testbed chrome */
+  --shell-bg: #E8E8ED;   /* area around the device frame */
+  --frame-bg: #FFFFFF;   /* inside the device frame — your screen's canvas */
+}
+
+/* ─── Motion token overrides ─────────────────────────────────
+   Defaults live in motion-system.css. Override per project here.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --ms-check-stroke:  var(--accent);
+  --ms-progress-fill: var(--accent);
+
+  /* Tighten expand slightly — prototype cards are small */
+  --ms-duration-expand: 280ms;
+}
+
+/* Neutral fallback only. The Inter variable is applied by the
+   wrapper in pages/index.tsx, and every child inherits it. */
+body {
+  font-family: system-ui, sans-serif;
+}
+
+/* Hide scrollbars globally for prototype feel */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

@@ -1,0 +1,8 @@
+This fork has not been set up for a project yet.
+
+While this file exists, CLAUDE.md instructs the agent to run the /new-prototype
+intake at the start of the first session — asking for the project name, what it
+is, platform focus, and accent color, then applying them across the repo.
+
+The intake deletes this file when it finishes. Delete it by hand to skip the
+intake and configure the fork yourself.
