@@ -9,6 +9,10 @@ prototype: ask for the details you need, apply them everywhere, verify, and repo
 
 Do the intake **first**. Do not start editing files or guess values from the directory name.
 
+**If the user already supplied some answers** — in the command arguments or anywhere earlier in the
+conversation — treat those as given. Ask only for what's still missing, and skip the questions
+entirely if you have all four essentials. Never re-ask something they've already told you.
+
 ## Step 1 — Intake
 
 Use the **AskUserQuestion** tool. Ask the four essentials in one call:
