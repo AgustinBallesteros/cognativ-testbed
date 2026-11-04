@@ -1,9 +1,10 @@
 import { Inter } from "next/font/google";
 import { useRef, useCallback, useState, useEffect } from "react";
 
+// Inter variable font: every weight 100–900 is available via CSS font-weight.
+// Don't pass a fixed `weight` list — it breaks the Vercel build (Next 16 + Turbopack).
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-inter",
 });
 
